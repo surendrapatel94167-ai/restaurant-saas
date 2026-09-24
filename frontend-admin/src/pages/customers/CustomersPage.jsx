@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
+import { useToast } from '../../components/ToastProvider';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
@@ -9,6 +10,7 @@ export default function CustomersPage() {
   const [messageError, setMessageError] = useState('');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState('');
+  const toast = useToast();
 
   const load = async () => {
     const { data } = await api.get('/customers');
@@ -31,10 +33,13 @@ export default function CustomersPage() {
         message,
         customerIds: mode === 'selected' ? selected : undefined,
       });
-      setResult(`Sent to ${data.sent} customer${data.sent === 1 ? '' : 's'} on WhatsApp${data.pushSent ? ` + ${data.pushSent} via notification` : ''} ✓`);
+      const message_ = `Sent to ${data.sent} customer${data.sent === 1 ? '' : 's'} on WhatsApp${data.pushSent ? ` + ${data.pushSent} via notification` : ''} ✓`;
+      setResult(message_);
+      toast.success(message_);
       setMessage(''); setSelected([]);
     } catch (err) {
       setResult(err.response?.data?.message || 'Failed to send');
+      toast.error(err.response?.data?.message || 'Failed to send message');
     } finally {
       setSending(false);
     }

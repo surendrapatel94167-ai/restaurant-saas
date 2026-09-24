@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
+import { useToast } from '../../components/ToastProvider';
 
 export default function PlatformSettingsPage() {
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const toast = useToast();
 
   const load = async () => {
     const { data } = await api.get('/platform-settings');
@@ -22,7 +24,10 @@ export default function PlatformSettingsPage() {
       const { data } = await api.put('/platform-settings', settings);
       setSettings(data);
       setMsg('Saved!');
+      toast.success('Platform settings saved');
       setTimeout(() => setMsg(''), 2000);
+    } catch (err) {
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
+import { useToast } from '../../components/ToastProvider';
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -13,6 +14,7 @@ function fileToDataUrl(file) {
 export default function ProfilePage() {
   const [tenant, setTenant] = useState(null);
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
   const [savedMsg, setSavedMsg] = useState('');
 
   const load = async () => {
@@ -48,7 +50,10 @@ export default function ProfilePage() {
         },
       });
       setSavedMsg('Saved!');
+      toast.success('Restaurant profile updated');
       setTimeout(() => setSavedMsg(''), 2000);
+    } catch (err) {
+      toast.error('Failed to save changes');
     } finally {
       setSaving(false);
     }

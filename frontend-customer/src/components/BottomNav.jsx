@@ -6,7 +6,6 @@ export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const cart = useSelector((s) => s.cart.items);
-  const [activeOrderId, setActiveOrderId] = useState(() => localStorage.getItem('activeOrderId'));
 
   // BottomNav sits outside <Routes>, so useParams() has no matched-route
   // context to read from — parse tenantSlug/tableId straight from the path.
@@ -14,11 +13,15 @@ export default function BottomNav() {
   const tenantSlug = match?.[1];
   const tableId = match?.[2];
 
-  // Pick up a newly-placed order (or a cleared one) without needing a reload —
-  // storage events fire across tabs; same-tab writes are read on route change.
+  const [activeOrderId, setActiveOrderId] = useState(() => tenantSlug ? localStorage.getItem(`activeOrderId:${tenantSlug}`) : null);
+
+  // Pick up a newly-placed order (or a cleared one) without needing a reload,
+  // and re-read whenever the restaurant (tenantSlug) changes — each restaurant
+  // has its own "My Order" pointer, so switching restaurants must not leak
+  // the previous one's order here.
   useEffect(() => {
-    setActiveOrderId(localStorage.getItem('activeOrderId'));
-  }, [location.pathname]);
+    setActiveOrderId(tenantSlug ? localStorage.getItem(`activeOrderId:${tenantSlug}`) : null);
+  }, [location.pathname, tenantSlug]);
 
   if (!tenantSlug || !tableId) return null;
 

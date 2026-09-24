@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import api from '../../api/axios';
 import PasswordInput from '../../components/PasswordInput';
+import { useToast } from '../../components/ToastProvider';
 
 const emptyBranch = { hotelName: '', slug: '', address: '', contactPhone: '', tableCount: 10 };
 
@@ -10,6 +11,7 @@ export default function AddMultiBranchHotelPage() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const toast = useToast();
 
   const updateBranch = (i, field, value) => {
     setBranches((prev) => prev.map((b, idx) => (idx === i ? { ...b, [field]: value } : b)));
@@ -43,8 +45,10 @@ export default function AddMultiBranchHotelPage() {
       setOwner({ ownerName: '', adminName: '', contactEmail: '', contactPhone: '', adminPassword: '' });
       setBranches([{ ...emptyBranch }, { ...emptyBranch }]);
       setFieldErrors({});
+      toast.success('Branches onboarded successfully');
     } catch (err) {
       setError(err.response?.data?.message || 'Onboarding failed');
+      toast.error('Onboarding failed');
     }
   };
 

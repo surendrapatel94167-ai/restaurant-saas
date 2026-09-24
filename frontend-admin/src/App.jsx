@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import Login from './pages/Login';
@@ -35,6 +36,12 @@ function HomeRedirect() {
 }
 
 export default function App() {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }, []);
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />

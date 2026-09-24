@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import api from '../../api/axios';
 import PasswordInput from '../../components/PasswordInput';
+import { useToast } from '../../components/ToastProvider';
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -19,6 +20,7 @@ export default function MyProfilePage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
@@ -50,9 +52,11 @@ export default function MyProfilePage() {
       setMe(data);
       setCurrentPassword(''); setNewPassword('');
       setMsg('Profile updated!');
+      toast.success('Profile updated');
       setTimeout(() => setMsg(''), 2000);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not save changes');
+      toast.error('Could not save changes');
     } finally {
       setSaving(false);
     }

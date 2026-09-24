@@ -1,19 +1,20 @@
 /**
- * Razorpay integration stub — swap in real keys (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET)
- * via config/env.js when ready. This simulates a successful payment so the checkout
- * flow is testable end-to-end without live keys.
+ * No payment gateway — customer pays the restaurant directly (UPI app deep
+ * link, or in person for cash/card), and the restaurant's admin/manager
+ * manually marks the payment as received (see orders.controller markPaymentPaid).
+ * This file exists only so the codebase has one obvious place to plug in a
+ * real gateway later, if ever wanted.
  */
 export async function createPaymentIntent(order) {
   return {
-    provider: 'razorpay',
-    paymentIntentId: `sim_${order._id}_${Date.now()}`,
+    paymentIntentId: `manual_${order._id}_${Date.now()}`,
     amount: order.totalAmount,
     currency: 'INR',
-    status: 'created',
   };
 }
 
-export async function verifyPayment(paymentIntentId, signature) {
-  // TODO: real signature verification with Razorpay webhook secret
-  return { verified: true, transactionId: paymentIntentId };
+export async function verifyPayment() {
+  // Not used by the current flow — payment is confirmed by restaurant staff,
+  // not verified against a gateway. Kept for API-compatibility only.
+  return { verified: true };
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import { useConfirm } from '../../components/ConfirmProvider';
+import { useToast } from '../../components/ToastProvider';
 
 const PLANS = ['trial', 'monthly', 'yearly'];
 
@@ -104,7 +105,8 @@ export default function AllHotelsPage() {
   const [tab, setTab] = useState('all');
   const [editingId, setEditingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
-  const { confirm, prompt, notify } = useConfirm();
+  const { confirm, prompt } = useConfirm();
+  const toast = useToast();
 
   const load = async () => {
     const { data } = await api.get('/super-admin/tenants');
@@ -115,11 +117,13 @@ export default function AllHotelsPage() {
 
   const saveSubscription = async (tenantId, payload) => {
     await api.patch(`/super-admin/tenants/${tenantId}/subscription`, payload);
+    toast.success('Subscription updated');
     load();
   };
 
   const toggleActive = async (tenantId) => {
     await api.patch(`/super-admin/tenants/${tenantId}/toggle-active`);
+    toast.success('Status updated');
     load();
   };
 
@@ -131,6 +135,7 @@ export default function AllHotelsPage() {
     });
     if (!ok) return;
     await api.delete(`/super-admin/tenants/${tenantId}`);
+    toast.success('Hotel deleted');
     load();
   };
 
@@ -143,9 +148,9 @@ export default function AllHotelsPage() {
     if (!newPassword) return;
     try {
       await api.post(`/super-admin/tenants/${tenantId}/reset-admin-password`, { newPassword });
-      await notify({ title: 'Password reset', message: 'Share the new password with the hotel admin directly.' });
+      toast.success('Password reset — share it with the hotel admin directly');
     } catch (err) {
-      await notify({ title: 'Failed', message: err.response?.data?.message || 'Could not reset password' });
+      toast.error(err.response?.data?.message || 'Could not reset password');
     }
   };
 
@@ -178,7 +183,7 @@ export default function AllHotelsPage() {
         <tbody>
           {visible.map((t) => (
             editingId === t._id ? (
-              <EditForm key={t._id} t={t} onCancel={() => setEditingId(null)} onSaved={() => { setEditingId(null); load(); }} />
+              <EditForm key={t._id} t={t} onCancel={() => setEditingId(null)} onSaved={() => { setEditingId(null); toast.success('Hotel details updated'); load(); }} />
             ) : (
               <SubscriptionRow
                 key={t._id} t={t}

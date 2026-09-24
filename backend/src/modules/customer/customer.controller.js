@@ -378,7 +378,7 @@ export async function confirmPayment(req, res, next) {
     const order = await Order.findOneForTenant(req.tenantId, { _id: req.params.orderId });
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
-    const verification = await paymentService.verifyPayment(paymentIntentId);
+    const verification = await paymentService.verifyPayment();
     if (!verification.verified) {
       return res.status(400).json({ message: 'Payment verification failed' });
     }

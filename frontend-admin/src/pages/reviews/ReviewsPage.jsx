@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import { useConfirm } from '../../components/ConfirmProvider';
+import { useToast } from '../../components/ToastProvider';
 
 export default function ReviewsPage() {
   const [reviews, setReviews] = useState([]);
   const [filter, setFilter] = useState('all'); // all | approved | pending
   const { confirm } = useConfirm();
+  const toast = useToast();
 
   const load = async () => {
     const { data } = await api.get('/reviews');
@@ -16,6 +18,7 @@ export default function ReviewsPage() {
 
   const toggle = async (id) => {
     await api.patch(`/reviews/${id}/toggle-approval`);
+    toast.success('Review updated');
     load();
   };
 
@@ -23,6 +26,7 @@ export default function ReviewsPage() {
     const ok = await confirm({ title: 'Delete this review?', message: 'This cannot be undone.', danger: true });
     if (!ok) return;
     await api.delete(`/reviews/${id}`);
+    toast.success('Review deleted');
     load();
   };
 

@@ -117,7 +117,7 @@ export default function BillingPage() {
             alt="Payment QR" className="w-52 h-52 mx-auto rounded-xl shadow-card bg-white p-2 mb-3"
           />
           {!intent.upiId && <p className="text-xs text-amber-600 mb-2">Platform hasn't set a UPI ID yet — contact your super-admin.</p>}
-          <p className="text-xs text-gray-500 mb-3">Simulated payment verification — swap in real Razorpay keys in payment.service.js to go live.</p>
+          <p className="text-xs text-gray-500 mb-3">Once you've paid, click below — the super-admin can double-check payment in All Hotels if anything looks off.</p>
           {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
           <button disabled={paying} onClick={confirmPay} className="bg-brand-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-brand-700 disabled:opacity-60">
             {paying ? 'Confirming…' : "I've Paid"}

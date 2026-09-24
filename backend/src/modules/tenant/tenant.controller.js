@@ -78,7 +78,7 @@ export async function confirmRenewalPayment(req, res, next) {
     const tenant = await Tenant.findById(req.tenantId);
     if (!tenant) return res.status(404).json({ message: 'Restaurant not found' });
 
-    const verification = await paymentService.verifyPayment(paymentIntentId);
+    const verification = await paymentService.verifyPayment();
     if (!verification.verified) return res.status(400).json({ message: 'Payment verification failed' });
 
     const chosenPlan = plan === 'yearly' ? 'yearly' : 'monthly';

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import { useConfirm } from '../../components/ConfirmProvider';
 import PasswordInput from '../../components/PasswordInput';
+import { useToast } from '../../components/ToastProvider';
 
 const ROLES = ['manager', 'chef', 'waiter', 'cashier'];
 
@@ -21,7 +22,8 @@ export default function HrPage() {
   const [salaryQuery, setSalaryQuery] = useState({ userId: '', year: new Date().getFullYear(), month: new Date().getMonth() + 1 });
   const [salaryResult, setSalaryResult] = useState(null);
   const [error, setError] = useState('');
-  const { confirm, prompt, notify } = useConfirm();
+  const { confirm, prompt } = useConfirm();
+  const toast = useToast();
 
   const loadAll = async () => {
     const [s, a] = await Promise.all([api.get('/staff'), api.get('/hr/attendance')]);
@@ -83,21 +85,25 @@ export default function HrPage() {
           name: staffForm.name, email: staffForm.email, phone: staffForm.phone,
           role: staffForm.role, employmentDetails,
         });
+        toast.success('Staff details updated');
       } else {
         await api.post('/staff', {
           name: staffForm.name, email: staffForm.email, phone: staffForm.phone,
           password: staffForm.password, role: staffForm.role, employmentDetails,
         });
+        toast.success('Staff added');
       }
       resetForm();
       loadAll();
     } catch (err) {
       setStaffError(err.response?.data?.message || 'Failed to save staff');
+      toast.error('Failed to save staff');
     }
   };
 
   const toggleStaffActive = async (id) => {
     await api.patch(`/staff/${id}/toggle-active`);
+    toast.success('Status updated');
     loadAll();
   };
 
@@ -110,9 +116,9 @@ export default function HrPage() {
     if (!newPassword) return;
     try {
       await api.post(`/staff/${id}/reset-password`, { newPassword });
-      await notify({ title: 'Password reset', message: 'Share the new password with them directly.' });
+      toast.success('Password reset — share it with them directly');
     } catch (err) {
-      await notify({ title: 'Failed', message: err.response?.data?.message || 'Failed to reset password' });
+      toast.error(err.response?.data?.message || 'Failed to reset password');
     }
   };
 
@@ -121,6 +127,7 @@ export default function HrPage() {
     if (!ok) return;
     if (editingId === id) resetForm();
     await api.delete(`/staff/${id}`);
+    toast.success('Staff removed');
     loadAll();
   };
 

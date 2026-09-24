@@ -3,11 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import api from '../api/axios';
 import { clearCart } from '../features/cartSlice';
+import { enablePushNotifications } from '../utils/pushNotifications';
+import { useToast } from '../components/ToastProvider';
 
 export default function CheckoutPage() {
   const { tenantSlug, tableId } = useParams();
   const cart = useSelector((s) => s.cart.items);
   const dispatch = useDispatch();
+  const toast = useToast();
   const navigate = useNavigate();
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
@@ -21,12 +24,10 @@ export default function CheckoutPage() {
   const [couponError, setCouponError] = useState('');
   const [applyingCoupon, setApplyingCoupon] = useState(false);
 
-  // UPI pay screen state — shown right after order creation if UPI was chosen.
+  // "Pay now" screen state — shown right after order creation if UPI was chosen.
   const [payingOrder, setPayingOrder] = useState(null);
   const [upiId, setUpiId] = useState('');
   const [hotelName, setHotelName] = useState('');
-  const [confirmingPayment, setConfirmingPayment] = useState(false);
-  const [payError, setPayError] = useState('');
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const tax = Math.round(subtotal * 0.05);
@@ -72,6 +73,7 @@ export default function CheckoutPage() {
         params: { code: couponInput.trim(), phone: customerPhone.trim() },
       });
       setCoupon({ code: couponInput.trim().toUpperCase(), ...data });
+      toast.success(`Coupon applied — ${data.discountPercentage}% off`);
     } catch (err) {
       setCoupon(null);
       setCouponError(err.response?.data?.message || 'Invalid coupon code');
@@ -80,7 +82,7 @@ export default function CheckoutPage() {
     }
   };
 
-  const removeCoupon = () => { setCoupon(null); setCouponInput(''); setCouponError(''); };
+  const removeCoupon = () => { setCoupon(null); setCouponInput(''); setCouponError(''); toast.info('Coupon removed'); };
 
   const handlePlaceOrder = async () => {
     if (!customerName.trim() || !customerPhone.trim()) {
@@ -109,14 +111,18 @@ export default function CheckoutPage() {
       });
 
       dispatch(clearCart());
-      localStorage.setItem('activeOrderId', order._id);
+      // Scoped per restaurant — the same phone/device visiting a different
+      // restaurant must not see this order under "My Order" there.
+      localStorage.setItem(`activeOrderId:${tenantSlug}`, order._id);
+      enablePushNotifications(tenantSlug, customerName, customerPhone);
+      toast.success('Order placed!');
 
       if (paymentMethod === 'upi') {
-        // Show the exact-amount UPI pay screen right now — order already
-        // exists and is visible to the restaurant regardless of payment state.
+        // Order already exists and is visible to the restaurant right away,
+        // regardless of payment state — show the "open your UPI app" screen.
         setPayingOrder(order);
       } else {
-        // Cash/Card: payment stays PENDING, settled at the restaurant.
+        // Cash/Card: settled in person, restaurant marks it paid.
         navigate(`/menu/${tenantSlug}/${tableId}/track/${order._id}`);
       }
     } catch (err) {
@@ -126,46 +132,41 @@ export default function CheckoutPage() {
     }
   };
 
-  const confirmUpiPayment = async () => {
-    setConfirmingPayment(true);
-    setPayError('');
-    try {
-      const { data: intent } = await api.post(`/customer/${tenantSlug}/orders/${payingOrder._id}/payment`);
-      await api.post(`/customer/${tenantSlug}/orders/${payingOrder._id}/payment/confirm`, {
-        paymentIntentId: intent.paymentIntentId,
-        method: 'upi',
-        customerPhone,
-      });
-      navigate(`/menu/${tenantSlug}/${tableId}/track/${payingOrder._id}`);
-    } catch (err) {
-      setPayError(err.response?.data?.message || 'Payment failed, please try again');
-    } finally {
-      setConfirmingPayment(false);
-    }
-  };
-
   if (payingOrder) {
+    // A plain upi:// link — tapping it on a phone opens whichever UPI app is
+    // installed (GPay, PhonePe, Paytm, BHIM...) with the exact amount
+    // pre-filled. No gateway, no server-side verification: the restaurant
+    // sees the payment land in their own UPI app/bank and marks it paid
+    // from their side (Live Orders → Mark Payment as Paid).
     const upiLink = `upi://pay?pa=${encodeURIComponent(upiId || 'restaurant@upi')}&pn=${encodeURIComponent(hotelName || 'Restaurant')}&am=${payingOrder.totalAmount}&cu=INR&tn=${encodeURIComponent('Order ' + payingOrder._id.slice(-6))}`;
-    const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiLink)}`;
     return (
       <div className="max-w-lg mx-auto min-h-screen bg-[#fbf7f4] flex flex-col items-center justify-center px-6 text-center">
-        <h1 className="text-lg font-bold text-ink-900 mb-1">Scan & Pay</h1>
-        <p className="text-sm text-gray-500 mb-4">Pay exactly <span className="font-semibold text-ink-900">₹{payingOrder.totalAmount}</span> to {hotelName}</p>
-        <img src={qrImg} alt="Payment QR" className="w-56 h-56 rounded-xl shadow-card bg-white p-2" />
-        {!upiId && <p className="text-xs text-amber-600 mt-2">Restaurant hasn't set a UPI ID yet — admin can add it in Profile.</p>}
-        {payError && <p className="text-red-500 text-sm mt-3">{payError}</p>}
-        <button
-          onClick={confirmUpiPayment}
-          disabled={confirmingPayment}
-          className="mt-6 w-full bg-brand-600 text-white py-3 rounded-xl font-semibold disabled:opacity-60"
+        <h1 className="text-lg font-bold text-ink-900 mb-1">Pay via UPI</h1>
+        <p className="text-sm text-gray-500 mb-6">
+          Pay exactly <span className="font-semibold text-ink-900">₹{payingOrder.totalAmount}</span> to {hotelName}
+        </p>
+
+        {!upiId && (
+          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+            Restaurant hasn't set a UPI ID yet — admin can add it in Profile.
+          </p>
+        )}
+
+        <a
+          href={upiLink}
+          className="w-full bg-brand-600 text-white py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2"
         >
-          {confirmingPayment ? 'Confirming…' : "I've Paid"}
-        </button>
+          📲 Open UPI App to Pay
+        </a>
+        <p className="text-xs text-gray-400 mt-3 max-w-xs">
+          This opens your UPI app (GPay, PhonePe, Paytm…) with the amount already filled in. Once you pay, the restaurant will confirm it on their end — you'll see it update on the next screen.
+        </p>
+
         <button
           onClick={() => navigate(`/menu/${tenantSlug}/${tableId}/track/${payingOrder._id}`)}
-          className="mt-3 text-sm text-gray-500"
+          className="mt-6 text-sm font-medium text-brand-600"
         >
-          I'll pay later / at the counter →
+          I've paid — check order status →
         </button>
       </div>
     );

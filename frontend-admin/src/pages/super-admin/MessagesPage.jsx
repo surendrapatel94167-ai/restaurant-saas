@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
+import { useToast } from '../../components/ToastProvider';
 
 export default function MessagesPage() {
   const [tenants, setTenants] = useState([]);
@@ -9,6 +10,7 @@ export default function MessagesPage() {
   const [messageError, setMessageError] = useState('');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState('');
+  const toast = useToast();
 
   useEffect(() => { api.get('/super-admin/tenants').then(({ data }) => setTenants(data)); }, []);
 
@@ -26,11 +28,14 @@ export default function MessagesPage() {
         tenantIds: mode === 'all' ? 'all' : selected,
         message,
       });
-      setResult(`Sent to ${data.sent} hotel${data.sent === 1 ? '' : 's'} ✓`);
+      const msg = `Sent to ${data.sent} hotel${data.sent === 1 ? '' : 's'} ✓`;
+      setResult(msg);
+      toast.success(msg);
       setMessage('');
       setSelected([]);
     } catch (err) {
       setResult(err.response?.data?.message || 'Failed to send');
+      toast.error('Failed to send message');
     } finally {
       setSending(false);
     }

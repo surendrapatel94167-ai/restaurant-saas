@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import { useConfirm } from '../../components/ConfirmProvider';
+import { useToast } from '../../components/ToastProvider';
 
 export default function TablesPage() {
   const [tables, setTables] = useState([]);
   const [newTableNumber, setNewTableNumber] = useState('');
   const [error, setError] = useState('');
   const { confirm } = useConfirm();
+  const toast = useToast();
 
   const load = async () => {
     const { data } = await api.get('/tables');
@@ -25,14 +27,17 @@ export default function TablesPage() {
     try {
       await api.post('/tables', { tableNumber: newTableNumber });
       setNewTableNumber('');
+      toast.success('Table added');
       load();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to add table');
+      toast.error('Failed to add table');
     }
   };
 
   const regenerate = async (id) => {
     await api.post(`/tables/${id}/regenerate`);
+    toast.success('QR code regenerated');
     load();
   };
 
@@ -40,6 +45,7 @@ export default function TablesPage() {
     const ok = await confirm({ title: 'Remove this table?', message: 'Its QR code will stop working.', danger: true });
     if (!ok) return;
     await api.delete(`/tables/${id}`);
+    toast.success('Table removed');
     load();
   };
 

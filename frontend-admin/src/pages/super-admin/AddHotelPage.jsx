@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import api from '../../api/axios';
 import PasswordInput from '../../components/PasswordInput';
+import { useToast } from '../../components/ToastProvider';
 
 const emptyForm = {
   hotelName: '', slug: '', ownerName: '', contactEmail: '', contactPhone: '', address: '',
@@ -12,6 +13,7 @@ export default function AddHotelPage() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const toast = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,8 +34,10 @@ export default function AddHotelPage() {
       setResult(data);
       setForm(emptyForm);
       setFieldErrors({});
+      toast.success('Hotel onboarded successfully');
     } catch (err) {
       setError(err.response?.data?.message || 'Onboarding failed');
+      toast.error('Onboarding failed');
     }
   };
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import { useConfirm } from '../../components/ConfirmProvider';
+import { useToast } from '../../components/ToastProvider';
 
 const emptyForm = {
   code: '', discountPercentage: '', scope: 'all', menuItemIds: [],
@@ -15,6 +16,7 @@ export default function CouponsPage() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState('');
   const { confirm } = useConfirm();
+  const toast = useToast();
 
   const load = async () => {
     const [c, m, cu] = await Promise.all([
@@ -64,14 +66,17 @@ export default function CouponsPage() {
       });
       setForm(emptyForm);
       setFieldErrors({});
+      toast.success('Coupon created');
       load();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create coupon');
+      toast.error('Failed to create coupon');
     }
   };
 
   const toggleActive = async (id) => {
     await api.patch(`/coupons/${id}/toggle-active`);
+    toast.success('Coupon updated');
     load();
   };
 
@@ -79,6 +84,7 @@ export default function CouponsPage() {
     const ok = await confirm({ title: 'Delete this coupon?', message: 'This cannot be undone.', danger: true });
     if (!ok) return;
     await api.delete(`/coupons/${id}`);
+    toast.success('Coupon deleted');
     load();
   };
 

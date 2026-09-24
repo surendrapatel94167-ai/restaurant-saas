@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import api from '../../api/axios';
 import { useConfirm } from '../../components/ConfirmProvider';
+import { useToast } from '../../components/ToastProvider';
 
 const emptyForm = { name: '', description: '', category: '', price: '', discountActive: false, discountPercentage: '', imageUrl: '', isVeg: true, spiceLevel: 'mild' };
 
@@ -19,6 +20,7 @@ export default function MenuPage() {
   const canManage = ['hotel_admin', 'manager'].includes(user?.role);
   const canToggleAvailability = canManage || user?.role === 'chef';
   const { confirm } = useConfirm();
+  const toast = useToast();
 
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(emptyForm);
@@ -68,13 +70,16 @@ export default function MenuPage() {
     try {
       if (editingId) {
         await api.put(`/menu/${editingId}`, payload);
+        toast.success('Dish updated');
       } else {
         await api.post('/menu', payload);
+        toast.success('Dish added');
       }
       resetForm();
       load();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save item');
+      toast.error('Failed to save dish');
     }
   };
 
@@ -96,6 +101,7 @@ export default function MenuPage() {
 
   const toggleAvailability = async (id) => {
     await api.patch(`/menu/${id}/toggle-availability`);
+    toast.success('Availability updated');
     load();
   };
 
@@ -103,6 +109,7 @@ export default function MenuPage() {
     const ok = await confirm({ title: 'Remove this dish?', message: 'It will disappear from the customer menu.', danger: true });
     if (!ok) return;
     await api.delete(`/menu/${id}`);
+    toast.success('Dish removed');
     load();
   };
 

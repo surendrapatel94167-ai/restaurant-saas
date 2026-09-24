@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { connectSocket } from '../sockets/socket';
 import OrderPromptsModal from '../components/OrderPromptsModal';
+import { useToast } from '../components/ToastProvider';
 
 const STEPS = ['WAITING_FOR_CONFIRMATION', 'CONFIRMED', 'PREPARING', 'READY', 'COMPLETED'];
 const LABELS = {
@@ -18,7 +19,10 @@ function getBanner(order) {
     if (order.payment?.status === 'PAID') {
       return { text: 'Payment Successful ✅ — Waiting for Restaurant Confirmation…', style: 'bg-amber-50 text-amber-700 border-amber-200' };
     }
-    return { text: 'Payment Pending ⏳ — Please pay at the restaurant.', style: 'bg-orange-50 text-orange-700 border-orange-200' };
+    const pendingText = order.payment?.method === 'upi'
+      ? 'Payment Pending ⏳ — Waiting for the restaurant to confirm your UPI payment.'
+      : 'Payment Pending ⏳ — Please pay at the restaurant.';
+    return { text: pendingText, style: 'bg-orange-50 text-orange-700 border-orange-200' };
   }
   if (order.status === 'CONFIRMED' || order.status === 'PREPARING') {
     return {
@@ -39,6 +43,7 @@ export default function OrderTrackingPage() {
   const { tenantSlug, tableId, orderId } = useParams();
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
+  const toast = useToast();
   const [sent, setSent] = useState({});
 
   useEffect(() => {
@@ -57,6 +62,7 @@ export default function OrderTrackingPage() {
   const requestAssistance = async (type) => {
     await api.post(`/customer/${tenantSlug}/orders/${orderId}/assistance`, { type });
     setSent((s) => ({ ...s, [type]: true }));
+    toast.success(type === 'call_waiter' ? 'Waiter notified' : 'Request sent to restaurant');
     setTimeout(() => setSent((s) => ({ ...s, [type]: false })), 3000);
   };
 
@@ -66,8 +72,8 @@ export default function OrderTrackingPage() {
   const banner = getBanner(order);
   const total = order.totalAmount;
 
-  if (order.status === 'COMPLETED' && localStorage.getItem('activeOrderId') === orderId) {
-    localStorage.removeItem('activeOrderId');
+  if (order.status === 'COMPLETED' && localStorage.getItem(`activeOrderId:${tenantSlug}`) === orderId) {
+    localStorage.removeItem(`activeOrderId:${tenantSlug}`);
   }
 
   return (

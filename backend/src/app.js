@@ -1,5 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
+import rateLimit from 'express-rate-limit';
 import { CLIENT_ORIGIN } from './config/env.js';
 import errorHandler from './middlewares/errorHandler.js';
 
@@ -40,6 +43,23 @@ app.use(cors({
 // Default is 100kb — too small since images (profile photos, menu photos,
 // logos, attendance selfies) are sent as base64 JSON, not multipart.
 app.use(express.json({ limit: '10mb' }));
+
+// Security hardening:
+// - helmet: sets safe HTTP headers (X-Frame-Options, no-sniff, HSTS, etc.)
+// - mongoSanitize: strips any $ / . keys from req.body/query/params, so a
+//   crafted request like { email: { "$gt": "" } } can't be used to bypass
+//   auth or query logic (NoSQL injection).
+app.use(helmet({ crossOriginResourcePolicy: false }));
+app.use(mongoSanitize());
+
+// General API rate limit — generous, just to blunt scraping/abuse.
+app.use('/api', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests — please slow down and try again shortly.' },
+}));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
