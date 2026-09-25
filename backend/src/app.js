@@ -1,10 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
 import { CLIENT_ORIGIN } from './config/env.js';
 import errorHandler from './middlewares/errorHandler.js';
+import sanitizeInput from './middlewares/sanitizeInput.js';
 
 import authRoutes from './modules/auth/auth.routes.js';
 import menuRoutes from './modules/menu/menu.routes.js';
@@ -46,11 +46,12 @@ app.use(express.json({ limit: '10mb' }));
 
 // Security hardening:
 // - helmet: sets safe HTTP headers (X-Frame-Options, no-sniff, HSTS, etc.)
-// - mongoSanitize: strips any $ / . keys from req.body/query/params, so a
-//   crafted request like { email: { "$gt": "" } } can't be used to bypass
-//   auth or query logic (NoSQL injection).
+// - sanitizeInput: strips any $ / . keys from req.body/query/params in place
+//   (a crafted request like { email: { "$gt": "" } } can't be used for NoSQL
+//   injection). Hand-rolled instead of express-mongo-sanitize, which crashes
+//   on Express 4.19+ by trying to reassign req.query (now getter-only).
 app.use(helmet({ crossOriginResourcePolicy: false }));
-app.use(mongoSanitize());
+app.use(sanitizeInput());
 
 // General API rate limit — generous, just to blunt scraping/abuse.
 app.use('/api', rateLimit({
