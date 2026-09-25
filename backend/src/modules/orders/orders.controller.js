@@ -6,8 +6,10 @@ import { scheduleInvoice } from '../../jobs/invoiceScheduler.js';
 
 export async function list(req, res, next) {
   try {
-    const { status } = req.query;
-    const filter = status ? { status } : {};
+    const { status, paymentStatus } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    if (paymentStatus) filter['payment.status'] = paymentStatus;
     const orders = await Order.forTenant(req.tenantId).where(filter).sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) { next(err); }

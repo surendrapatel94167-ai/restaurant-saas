@@ -53,7 +53,7 @@ function DetailRow({ tenantId }) {
   );
 }
 
-function SubscriptionRow({ t, onSave, onEdit, onDelete, onToggleActive, onResetPassword, expanded, onToggleExpand }) {
+function SubscriptionRow({ t, onSave, onEdit, onDelete, onToggleActive, onResetPassword, onApprove, expanded, onToggleExpand }) {
   const [plan, setPlan] = useState(t.subscription?.plan || 'trial');
   const [status, setStatus] = useState(t.subscription?.status || 'active');
   const [endDate, setEndDate] = useState(t.subscription?.endDate ? t.subscription.endDate.slice(0, 10) : '');
@@ -61,10 +61,11 @@ function SubscriptionRow({ t, onSave, onEdit, onDelete, onToggleActive, onResetP
   const daysLeft = t.subscription?.endDate
     ? Math.ceil((new Date(t.subscription.endDate) - new Date()) / (1000 * 60 * 60 * 24))
     : null;
+  const isPendingApproval = t.subscription?.status === 'pending_approval';
 
   return (
     <>
-      <tr className="border-b last:border-0">
+      <tr className={`border-b last:border-0 ${isPendingApproval ? 'bg-amber-50' : ''}`}>
         <td className="py-1.5">{t.hotelName}<br /><span className="text-[10px] text-gray-400">{t.tableCount} tables</span></td>
         <td>{t.slug}</td>
         <td>
@@ -73,11 +74,17 @@ function SubscriptionRow({ t, onSave, onEdit, onDelete, onToggleActive, onResetP
           </select>
         </td>
         <td>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="border rounded px-1 py-0.5 text-xs">
-            <option value="active">Active</option>
-            <option value="expired">Expired</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+          {isPendingApproval ? (
+            <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
+              ⏳ Pending ({t.subscription.pendingPlan})
+            </span>
+          ) : (
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="border rounded px-1 py-0.5 text-xs">
+              <option value="active">Active</option>
+              <option value="expired">Expired</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          )}
         </td>
         <td>
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border rounded px-1 py-0.5 text-xs" />
@@ -87,6 +94,9 @@ function SubscriptionRow({ t, onSave, onEdit, onDelete, onToggleActive, onResetP
         </td>
         <td>{t.isActive ? 'Yes' : 'No'}</td>
         <td className="space-x-2 whitespace-nowrap text-xs">
+          {isPendingApproval && (
+            <button onClick={() => onApprove(t._id)} className="text-green-600 font-semibold hover:underline">✓ Approve</button>
+          )}
           <button onClick={() => onSave(t._id, { plan, status, endDate })} className="text-brand-600 hover:underline">Save</button>
           <button onClick={onToggleExpand} className="text-gray-500 hover:underline">{expanded ? 'Hide' : 'View'}</button>
           <button onClick={onEdit} className="text-gray-500 hover:underline">Edit</button>
@@ -154,22 +164,39 @@ export default function AllHotelsPage() {
     }
   };
 
+  const approveSubscription = async (tenantId) => {
+    const ok = await confirm({
+      title: 'Approve this payment?',
+      message: 'Confirm you\u2019ve actually received the payment before approving — this unlocks their full admin panel immediately.',
+    });
+    if (!ok) return;
+    try {
+      await api.post(`/super-admin/tenants/${tenantId}/approve-subscription`);
+      toast.success('Subscription approved — panel unlocked for them');
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not approve');
+    }
+  };
+
   const visible = tenants.filter((t) => {
+    if (tab === 'pending') return t.subscription?.status === 'pending_approval';
     if (tab === 'trial') return (t.subscription?.plan || 'trial') === 'trial';
     if (tab === 'monthly') return t.subscription?.plan === 'monthly';
     if (tab === 'yearly') return t.subscription?.plan === 'yearly';
     return true;
   });
+  const pendingCount = tenants.filter((t) => t.subscription?.status === 'pending_approval').length;
 
   return (
     <div className="bg-white rounded-xl shadow-card p-4 overflow-x-auto">
       <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
         <h1 className="text-2xl font-bold text-ink-900">All Hotels</h1>
         <div className="flex gap-1">
-          {['all', 'trial', 'monthly', 'yearly'].map((tb) => (
+          {['all', 'pending', 'trial', 'monthly', 'yearly'].map((tb) => (
             <button key={tb} onClick={() => setTab(tb)}
               className={`text-xs px-3 py-1 rounded-full capitalize ${tab === tb ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              {tb}
+              {tb} {tb === 'pending' && pendingCount > 0 ? `(${pendingCount})` : ''}
             </button>
           ))}
         </div>
@@ -192,6 +219,7 @@ export default function AllHotelsPage() {
                 onDelete={deleteTenant}
                 onToggleActive={toggleActive}
                 onResetPassword={resetAdminPassword}
+                onApprove={approveSubscription}
                 expanded={expandedId === t._id}
                 onToggleExpand={() => setExpandedId(expandedId === t._id ? null : t._id)}
               />

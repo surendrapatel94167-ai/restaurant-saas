@@ -61,14 +61,18 @@ export async function onboardTenant(req, res, next) {
   try {
     const {
       hotelName, slug, ownerName, contactEmail, contactPhone, address,
-      adminName, adminPassword, tableCount = 10,
+      adminName, adminPassword, tableCount = 10, trialDays = 5,
       linkToExistingAdminEmail, // multi-branch: attach this new hotel to an admin who already has a login
     } = req.body;
 
     const existing = await Tenant.findOne({ slug });
     if (existing) return res.status(400).json({ message: 'Slug already taken' });
 
-    const tenant = await Tenant.create({ hotelName, slug, ownerName, contactEmail, contactPhone, address });
+    const trialEndDate = new Date(Date.now() + Number(trialDays) * 24 * 60 * 60 * 1000);
+    const tenant = await Tenant.create({
+      hotelName, slug, ownerName, contactEmail, contactPhone, address,
+      subscription: { plan: 'trial', status: 'active', startDate: new Date(), endDate: trialEndDate },
+    });
 
     let admin;
     if (linkToExistingAdminEmail) {
@@ -110,7 +114,7 @@ export async function onboardTenant(req, res, next) {
 // are added separately per-branch from that branch's HR page after this).
 export async function onboardMultiBranch(req, res, next) {
   try {
-    const { ownerName, adminName, contactEmail, contactPhone, adminPassword, branches } = req.body;
+    const { ownerName, adminName, contactEmail, contactPhone, adminPassword, branches, trialDays = 5 } = req.body;
 
     if (!adminName || !contactEmail || !adminPassword) {
       return res.status(400).json({ message: 'adminName, contactEmail and adminPassword are required' });
@@ -139,6 +143,7 @@ export async function onboardMultiBranch(req, res, next) {
         contactEmail: b.contactEmail || contactEmail,
         contactPhone: b.contactPhone || contactPhone,
         address: b.address,
+        subscription: { plan: 'trial', status: 'active', startDate: new Date(), endDate: new Date(Date.now() + Number(trialDays) * 24 * 60 * 60 * 1000) },
       });
       if (!primaryTenantId) primaryTenantId = tenant._id; else linkedTenantIds.push(tenant._id);
 
@@ -228,6 +233,44 @@ export async function toggleActive(req, res, next) {
     if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
     tenant.isActive = !tenant.isActive;
     await tenant.save();
+    res.json(tenant);
+  } catch (err) { next(err); }
+}
+
+// Admin self-reported a payment (status='pending_approval') — super-admin
+// checks it actually landed and approves it here. This is what actually
+// unlocks the tenant's admin panel again (see requireActiveSubscription).
+export async function approveSubscription(req, res, next) {
+  try {
+    const tenant = await Tenant.findById(req.params.tenantId);
+    if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
+    if (tenant.subscription.status !== 'pending_approval') {
+      return res.status(400).json({ message: 'This tenant has no pending payment to approve' });
+    }
+
+    const plan = tenant.subscription.pendingPlan || 'monthly';
+    const durationMs = plan === 'yearly' ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+    // Extend from whichever is later — "now" or the current expiry — so
+    // renewing early doesn't waste remaining days already paid for.
+    const base = tenant.subscription.endDate && new Date(tenant.subscription.endDate) > new Date()
+      ? new Date(tenant.subscription.endDate)
+      : new Date();
+    const newEndDate = new Date(base.getTime() + durationMs);
+
+    tenant.subscription.plan = plan;
+    tenant.subscription.status = 'active';
+    tenant.subscription.endDate = newEndDate;
+    tenant.subscription.pendingPlan = undefined;
+    tenant.subscription.pendingSince = undefined;
+    await tenant.save();
+
+    await Notification.create({
+      recipientType: 'tenant_admin',
+      tenantId: tenant._id,
+      type: 'subscription_approved',
+      message: `Your ${plan} subscription has been approved — active until ${newEndDate.toDateString()}. Welcome back!`,
+    });
+
     res.json(tenant);
   } catch (err) { next(err); }
 }

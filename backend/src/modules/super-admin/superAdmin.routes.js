@@ -16,6 +16,7 @@ router.put('/tenants/:tenantId', controller.updateTenant);
 router.delete('/tenants/:tenantId', controller.deleteTenant);
 router.patch('/tenants/:tenantId/subscription', controller.updateSubscription);
 router.patch('/tenants/:tenantId/toggle-active', controller.toggleActive);
+router.post('/tenants/:tenantId/approve-subscription', controller.approveSubscription);
 router.post('/tenants/:tenantId/reset-admin-password', controller.resetAdminPassword);
 router.post('/messages', controller.sendMessage);
 

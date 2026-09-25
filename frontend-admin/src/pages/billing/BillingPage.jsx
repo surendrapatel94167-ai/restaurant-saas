@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 
+const STATUS_LABEL = {
+  active: 'Active',
+  pending_approval: 'Payment submitted — awaiting approval',
+  expired: 'Expired',
+  cancelled: 'Cancelled',
+};
+
 export default function BillingPage() {
   const [status, setStatus] = useState(null);
   const [plan, setPlan] = useState('monthly');
@@ -40,7 +47,7 @@ export default function BillingPage() {
     try {
       await api.post('/tenant/billing/confirm', { paymentIntentId: intent.paymentIntentId, plan });
       setShowPay(false);
-      setSuccess('Subscription renewed successfully!');
+      setSuccess('Payment submitted! The super-admin will verify and approve it shortly.');
       load();
     } catch (err) {
       setError(err.response?.data?.message || 'Payment failed, please try again');
@@ -52,12 +59,13 @@ export default function BillingPage() {
   if (!status) return <p className="text-gray-500">Loading…</p>;
 
   const { subscription, daysLeft, prices, offer } = status;
+  const isPendingApproval = subscription.status === 'pending_approval';
 
   return (
     <div className="max-w-xl space-y-6">
       <h1 className="text-2xl font-bold text-ink-900">Subscription</h1>
 
-      {offer && (
+      {offer && !isPendingApproval && (
         <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-xl p-4 shadow-card">
           <p className="font-semibold">🎉 {offer.label || 'Special offer available!'}</p>
         </div>
@@ -66,14 +74,22 @@ export default function BillingPage() {
       <div className="bg-white rounded-xl shadow-card p-5">
         <p className="text-sm text-gray-500">Current plan</p>
         <p className="text-xl font-bold text-ink-900 capitalize">{subscription.plan}</p>
-        <p className={`text-sm mt-1 ${daysLeft !== null && daysLeft <= 5 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+        <p className={`text-sm mt-1 ${isPendingApproval ? 'text-amber-600 font-medium' : daysLeft !== null && daysLeft <= 5 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
           {subscription.status === 'active'
             ? daysLeft !== null ? `${subscription.plan === 'trial' ? 'Trial ends' : 'Renews/expires'} in ${daysLeft} day${daysLeft === 1 ? '' : 's'} (${new Date(subscription.endDate).toLocaleDateString()})` : 'Active'
-            : `Status: ${subscription.status}`}
+            : STATUS_LABEL[subscription.status] || subscription.status}
         </p>
       </div>
 
-      {!showPay ? (
+      {isPendingApproval ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-center">
+          <p className="text-amber-800 font-medium mb-1">⏳ Waiting for super-admin approval</p>
+          <p className="text-sm text-amber-700">
+            You reported paying for the <span className="capitalize font-medium">{subscription.pendingPlan}</span> plan.
+            Once the super-admin verifies the payment, your full panel unlocks automatically — no need to do anything else here.
+          </p>
+        </div>
+      ) : !showPay ? (
         <div className="bg-white rounded-xl shadow-card p-5">
           <h2 className="font-semibold mb-3">Renew Subscription</h2>
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -117,10 +133,10 @@ export default function BillingPage() {
             alt="Payment QR" className="w-52 h-52 mx-auto rounded-xl shadow-card bg-white p-2 mb-3"
           />
           {!intent.upiId && <p className="text-xs text-amber-600 mb-2">Platform hasn't set a UPI ID yet — contact your super-admin.</p>}
-          <p className="text-xs text-gray-500 mb-3">Once you've paid, click below — the super-admin can double-check payment in All Hotels if anything looks off.</p>
+          <p className="text-xs text-gray-500 mb-3">After paying, click below — your panel unlocks once the super-admin approves it.</p>
           {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
           <button disabled={paying} onClick={confirmPay} className="bg-brand-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-brand-700 disabled:opacity-60">
-            {paying ? 'Confirming…' : "I've Paid"}
+            {paying ? 'Submitting…' : "I've Paid"}
           </button>
           <button onClick={() => setShowPay(false)} className="block mx-auto mt-3 text-sm text-gray-500">← Back</button>
         </div>

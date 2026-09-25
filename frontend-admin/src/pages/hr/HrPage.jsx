@@ -15,6 +15,7 @@ export default function HrPage() {
   const [staff, setStaff] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [attendanceFilter, setAttendanceFilter] = useState('');
+  const [detailRecord, setDetailRecord] = useState(null);
   const [staffForm, setStaffForm] = useState(emptyStaffForm);
   const [editingId, setEditingId] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -247,7 +248,7 @@ export default function HrPage() {
           <table className="w-full text-sm min-w-[560px]">
             <thead>
               <tr className="text-left text-gray-500 border-b">
-                <th className="py-1">Date</th><th>Staff</th><th>Status</th><th>Hours</th><th>OT</th><th>Verified</th>
+                <th className="py-1">Date</th><th>Staff</th><th>Status</th><th>Hours</th><th>OT</th><th>Verified</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -259,9 +260,10 @@ export default function HrPage() {
                   <td>{a.hoursWorked ?? '—'}</td>
                   <td>{a.overtimeHours ?? 0}</td>
                   <td>{a.punchInSelfieUrl ? <img src={a.punchInSelfieUrl} alt="selfie" className="w-8 h-8 rounded-full object-cover" /> : '—'}</td>
+                  <td><button onClick={() => setDetailRecord(a)} className="text-brand-600 hover:underline text-xs">View Details</button></td>
                 </tr>
               ))}
-              {visibleAttendance.length === 0 && <tr><td colSpan="6" className="text-center text-gray-400 py-3">No records yet.</td></tr>}
+              {visibleAttendance.length === 0 && <tr><td colSpan="7" className="text-center text-gray-400 py-3">No records yet.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -300,6 +302,92 @@ export default function HrPage() {
           </div>
         )}
       </div>
+
+      {detailRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setDetailRecord(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="font-bold text-ink-900 text-lg">{staffName(detailRecord.userId)}</h3>
+                <p className="text-sm text-gray-500">{new Date(detailRecord.date).toLocaleDateString()} · <span className="capitalize">{detailRecord.status?.replace('_', ' ')}</span></p>
+              </div>
+              <button onClick={() => setDetailRecord(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+            </div>
+
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">Hours worked</p>
+                  <p className="font-semibold">{detailRecord.hoursWorked ?? '—'}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">Overtime</p>
+                  <p className="font-semibold">{detailRecord.overtimeHours ?? 0} hrs</p>
+                </div>
+              </div>
+
+              {detailRecord.punchIn && (
+                <div className="border-t pt-3">
+                  <p className="font-medium text-ink-900 mb-2">🕐 Punch In — {new Date(detailRecord.punchIn).toLocaleTimeString()}</p>
+                  <div className="flex gap-3">
+                    {detailRecord.punchInSelfieUrl ? (
+                      <img src={detailRecord.punchInSelfieUrl} alt="Punch in selfie" className="w-24 h-24 rounded-lg object-cover" />
+                    ) : (
+                      <div className="w-24 h-24 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">No photo</div>
+                    )}
+                    <div className="text-xs text-gray-500">
+                      {detailRecord.punchInLocation?.lat ? (
+                        <a
+                          href={`https://www.google.com/maps?q=${detailRecord.punchInLocation.lat},${detailRecord.punchInLocation.lng}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="text-brand-600 hover:underline"
+                        >
+                          📍 View location on map
+                        </a>
+                      ) : 'No location captured'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {detailRecord.punchOut && (
+                <div className="border-t pt-3">
+                  <p className="font-medium text-ink-900 mb-2">🕐 Punch Out — {new Date(detailRecord.punchOut).toLocaleTimeString()}</p>
+                  <div className="flex gap-3">
+                    {detailRecord.punchOutSelfieUrl ? (
+                      <img src={detailRecord.punchOutSelfieUrl} alt="Punch out selfie" className="w-24 h-24 rounded-lg object-cover" />
+                    ) : (
+                      <div className="w-24 h-24 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">No photo</div>
+                    )}
+                    <div className="text-xs text-gray-500">
+                      {detailRecord.punchOutLocation?.lat ? (
+                        <a
+                          href={`https://www.google.com/maps?q=${detailRecord.punchOutLocation.lat},${detailRecord.punchOutLocation.lng}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="text-brand-600 hover:underline"
+                        >
+                          📍 View location on map
+                        </a>
+                      ) : 'No location captured'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!detailRecord.punchIn && !detailRecord.punchOut && (
+                <p className="text-gray-400 text-center py-4">No punch-in/out recorded for this entry (half-day/leave marked directly).</p>
+              )}
+            </div>
+
+            <button
+              onClick={() => setDetailRecord(null)}
+              className="w-full mt-5 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium hover:bg-gray-200"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

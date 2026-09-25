@@ -12,9 +12,13 @@ const tenantSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     subscription: {
       plan: { type: String, enum: ['trial', 'monthly', 'yearly'], default: 'trial' },
-      status: { type: String, enum: ['active', 'expired', 'cancelled'], default: 'active' },
+      status: { type: String, enum: ['active', 'expired', 'cancelled', 'pending_approval'], default: 'active' },
       startDate: Date,
       endDate: Date,
+      // Set when the admin self-reports a payment — the plan stays whatever
+      // it was until super-admin approves it (see superAdmin.approveSubscription).
+      pendingPlan: { type: String, enum: ['monthly', 'yearly'] },
+      pendingSince: Date,
     },
     settings: {
       currency: { type: String, default: 'INR' },

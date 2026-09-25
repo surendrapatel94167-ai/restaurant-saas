@@ -6,7 +6,7 @@ import { useToast } from '../../components/ToastProvider';
 const emptyBranch = { hotelName: '', slug: '', address: '', contactPhone: '', tableCount: 10 };
 
 export default function AddMultiBranchHotelPage() {
-  const [owner, setOwner] = useState({ ownerName: '', adminName: '', contactEmail: '', contactPhone: '', adminPassword: '' });
+  const [owner, setOwner] = useState({ ownerName: '', adminName: '', contactEmail: '', contactPhone: '', adminPassword: '', trialDays: 5 });
   const [branches, setBranches] = useState([{ ...emptyBranch }, { ...emptyBranch }]);
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState('');
@@ -39,10 +39,11 @@ export default function AddMultiBranchHotelPage() {
     try {
       const { data } = await api.post('/super-admin/tenants/multi-branch', {
         ...owner,
+        trialDays: Number(owner.trialDays),
         branches: branches.map((b) => ({ ...b, tableCount: Number(b.tableCount) })),
       });
       setResult(data);
-      setOwner({ ownerName: '', adminName: '', contactEmail: '', contactPhone: '', adminPassword: '' });
+      setOwner({ ownerName: '', adminName: '', contactEmail: '', contactPhone: '', adminPassword: '', trialDays: 5 });
       setBranches([{ ...emptyBranch }, { ...emptyBranch }]);
       setFieldErrors({});
       toast.success('Branches onboarded successfully');
@@ -77,6 +78,10 @@ export default function AddMultiBranchHotelPage() {
             <div className="col-span-2">
               <PasswordInput placeholder="Admin password" value={owner.adminPassword} onChange={(e) => setOwner({ ...owner, adminPassword: e.target.value })} className="border rounded-lg px-3 py-2 w-full" />
               {fieldErrors.adminPassword && <p className="text-red-500 text-xs mt-1">{fieldErrors.adminPassword}</p>}
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Trial period (days)</label>
+              <input placeholder="Trial days" type="number" min="1" value={owner.trialDays} onChange={(e) => setOwner({ ...owner, trialDays: e.target.value })} className="border rounded-lg px-3 py-2 w-full" />
             </div>
           </div>
         </div>

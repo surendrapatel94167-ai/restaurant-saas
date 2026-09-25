@@ -5,7 +5,7 @@ import { useToast } from '../../components/ToastProvider';
 
 const emptyForm = {
   hotelName: '', slug: '', ownerName: '', contactEmail: '', contactPhone: '', address: '',
-  adminName: '', adminPassword: '', tableCount: 10,
+  adminName: '', adminPassword: '', tableCount: 10, trialDays: 5,
 };
 
 export default function AddHotelPage() {
@@ -30,7 +30,7 @@ export default function AddHotelPage() {
     if (Object.keys(errs).length) return;
 
     try {
-      const { data } = await api.post('/super-admin/tenants', { ...form, tableCount: Number(form.tableCount) });
+      const { data } = await api.post('/super-admin/tenants', { ...form, tableCount: Number(form.tableCount), trialDays: Number(form.trialDays) });
       setResult(data);
       setForm(emptyForm);
       setFieldErrors({});
@@ -72,7 +72,11 @@ export default function AddHotelPage() {
           {fieldErrors.adminPassword && <p className="text-red-500 text-xs mt-1">{fieldErrors.adminPassword}</p>}
         </div>
 
-        <input placeholder="Number of tables" type="number" value={form.tableCount} onChange={(e) => setForm({ ...form, tableCount: e.target.value })} className="border rounded-lg px-3 py-2 col-span-2" />
+        <input placeholder="Number of tables" type="number" value={form.tableCount} onChange={(e) => setForm({ ...form, tableCount: e.target.value })} className="border rounded-lg px-3 py-2" />
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Trial period (days)</label>
+          <input placeholder="Trial days" type="number" min="1" value={form.trialDays} onChange={(e) => setForm({ ...form, trialDays: e.target.value })} className="border rounded-lg px-3 py-2 w-full" />
+        </div>
         <button className="col-span-2 bg-brand-600 text-white py-2.5 rounded-lg font-medium hover:bg-brand-700">Onboard Hotel</button>
         {error && <p className="col-span-2 text-red-500 text-sm">{error}</p>}
       </form>

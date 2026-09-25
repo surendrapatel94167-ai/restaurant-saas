@@ -82,25 +82,20 @@ export async function confirmRenewalPayment(req, res, next) {
     if (!verification.verified) return res.status(400).json({ message: 'Payment verification failed' });
 
     const chosenPlan = plan === 'yearly' ? 'yearly' : 'monthly';
-    const durationMs = chosenPlan === 'yearly' ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
 
-    // Extend from whichever is later — "now" or the current expiry — so
-    // renewing early doesn't waste remaining days already paid for.
-    const base = tenant.subscription.endDate && new Date(tenant.subscription.endDate) > new Date()
-      ? new Date(tenant.subscription.endDate)
-      : new Date();
-    const newEndDate = new Date(base.getTime() + durationMs);
-
-    tenant.subscription.plan = chosenPlan;
-    tenant.subscription.status = 'active';
-    tenant.subscription.endDate = newEndDate;
+    // Don't activate immediately — super-admin has to check the payment
+    // actually landed and approve it. Until then the admin panel stays
+    // locked down to just Subscription/Profile/Logout (see requireActiveSubscription).
+    tenant.subscription.status = 'pending_approval';
+    tenant.subscription.pendingPlan = chosenPlan;
+    tenant.subscription.pendingSince = new Date();
     await tenant.save();
 
     await Notification.create({
       recipientType: 'super_admin',
       tenantId: tenant._id,
-      type: 'subscription_renewed',
-      message: `${tenant.hotelName} renewed their ${chosenPlan} plan — now active until ${newEndDate.toDateString()}.`,
+      type: 'subscription_payment_pending',
+      message: `${tenant.hotelName} says they've paid for the ${chosenPlan} plan — please verify and approve.`,
     });
 
     res.json({ subscription: tenant.subscription });

@@ -4,10 +4,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logout, setCredentials } from '../features/authSlice';
 import api from '../api/axios';
 import { useConfirm } from '../components/ConfirmProvider';
+import StaffBottomNav from '../components/StaffBottomNav';
 import {
   LayoutDashboard, PlusCircle, Building2, Building, Mail, Settings, UserCog,
   Bell, BarChart3, Flame, UtensilsCrossed, Star, Ticket, Smartphone, Users,
   Wallet, QrCode, CreditCard, Store, Clock, Menu as MenuIcon, LogOut, ChevronDown,
+  Receipt, AlertTriangle,
 } from 'lucide-react';
 
 const NAV_BY_ROLE = {
@@ -24,6 +26,7 @@ const NAV_BY_ROLE = {
     { to: '/live-orders', label: 'Live Orders', icon: Bell },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
     { to: '/kds', label: 'Kitchen Display', icon: Flame },
+    { to: '/pending-payments', label: 'Pending Payments', icon: Receipt },
     { to: '/menu', label: 'Menu', icon: UtensilsCrossed },
     { to: '/reviews', label: 'Reviews', icon: Star },
     { to: '/coupons', label: 'Coupons', icon: Ticket },
@@ -39,6 +42,7 @@ const NAV_BY_ROLE = {
     { to: '/live-orders', label: 'Live Orders', icon: Bell },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
     { to: '/kds', label: 'Kitchen Display', icon: Flame },
+    { to: '/pending-payments', label: 'Pending Payments', icon: Receipt },
     { to: '/menu', label: 'Menu', icon: UtensilsCrossed },
     { to: '/reviews', label: 'Reviews', icon: Star },
     { to: '/coupons', label: 'Coupons', icon: Ticket },
@@ -57,17 +61,23 @@ const NAV_BY_ROLE = {
   ],
   waiter: [
     { to: '/kds', label: 'Kitchen Display / Live Orders', icon: Flame },
+    { to: '/pending-payments', label: 'Pending Payments', icon: Receipt },
     { to: '/menu', label: 'Menu', icon: UtensilsCrossed },
     { to: '/attendance', label: 'Attendance', icon: Clock },
     { to: '/my-profile', label: 'My Profile', icon: UserCog },
   ],
   cashier: [
     { to: '/kds', label: 'Kitchen Display / Live Orders', icon: Flame },
+    { to: '/pending-payments', label: 'Pending Payments', icon: Receipt },
     { to: '/menu', label: 'Menu', icon: UtensilsCrossed },
     { to: '/attendance', label: 'Attendance', icon: Clock },
     { to: '/my-profile', label: 'My Profile', icon: UserCog },
   ],
 };
+
+// When a tenant's subscription isn't active, hotel_admin/manager are locked
+// down to just these — enough to see status, pay, and edit their own profile.
+const RESTRICTED_PATHS = ['/billing', '/my-profile', '/profile'];
 
 function Avatar({ src, name, size = 'w-8 h-8', textSize = 'text-xs' }) {
   if (src) {
@@ -80,14 +90,14 @@ function Avatar({ src, name, size = 'w-8 h-8', textSize = 'text-xs' }) {
   );
 }
 
-function SidebarContent({ nav, user, branches, switchBranch, notifications, showNotifs, setShowNotifs, unread, markRead, onNavigate }) {
+function SidebarContent({ nav, user, branches, switchBranch, notifications, showNotifs, onToggleNotifs, unread, onNavigate }) {
   return (
     <>
       <div className="p-5 flex items-center gap-2.5 border-b border-white/10">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-white font-bold text-sm shadow-lg flex-shrink-0">R</div>
         <span className="text-white font-semibold text-sm tracking-wide truncate">Restaurant SaaS</span>
         {(user?.role === 'hotel_admin' || user?.role === 'manager') && (
-          <button onClick={() => setShowNotifs((v) => !v)} className="ml-auto relative hover:scale-110 transition flex-shrink-0 text-gray-300" aria-label="Notifications">
+          <button onClick={onToggleNotifs} className="ml-auto relative hover:scale-110 transition flex-shrink-0 text-gray-300" aria-label="Notifications">
             <Bell size={18} />
             {unread > 0 && (
               <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center">
@@ -101,12 +111,14 @@ function SidebarContent({ nav, user, branches, switchBranch, notifications, show
       {showNotifs && (
         <div className="max-h-56 overflow-y-auto border-b border-white/10 p-2 space-y-1.5">
           {notifications.length === 0 && <p className="text-xs text-gray-500 px-2">No notifications.</p>}
-          {notifications.map((n) => (
-            <button key={n._id} onClick={() => markRead(n._id)}
-              className={`block w-full text-left text-xs px-2 py-1.5 rounded-lg ${n.isRead ? 'text-gray-500' : 'bg-white/5 text-gray-100'}`}>
+          {notifications.slice(0, 8).map((n) => (
+            <div key={n._id} className={`text-xs px-2 py-1.5 rounded-lg ${n.isRead ? 'text-gray-500' : 'bg-white/5 text-gray-100'}`}>
               {n.message}
-            </button>
+            </div>
           ))}
+          <NavLink to="/notifications" onClick={onNavigate} className="block text-center text-xs text-brand-400 hover:text-brand-300 pt-1 font-medium">
+            View all →
+          </NavLink>
         </div>
       )}
 
@@ -155,19 +167,21 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { confirm } = useConfirm();
-  const nav = NAV_BY_ROLE[user?.role] || [];
+  const isRestaurantStaff = user?.role === 'hotel_admin' || user?.role === 'manager';
   const [notifications, setNotifications] = useState([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [branches, setBranches] = useState([]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null); // null = not checked yet / not applicable
   const profileMenuRef = useRef(null);
 
   useEffect(() => {
-    if (user?.role === 'hotel_admin' || user?.role === 'manager') {
+    if (isRestaurantStaff) {
       api.get('/notifications').then(({ data }) => setNotifications(data)).catch(() => {});
       api.get('/auth/my-branches').then(({ data }) => setBranches(data)).catch(() => {});
+      api.get('/tenant/billing/status').then(({ data }) => setSubscriptionStatus(data.subscription.status)).catch(() => {});
     }
     api.get('/auth/my-profile').then(({ data }) => setProfileImageUrl(data.profileImageUrl || null)).catch(() => {});
   }, [user?.role]);
@@ -182,6 +196,16 @@ export default function AdminLayout() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
+  const restricted = isRestaurantStaff && subscriptionStatus && subscriptionStatus !== 'active';
+  const isFieldStaff = ['chef', 'waiter', 'cashier'].includes(user?.role);
+
+  // Bounce them back to Subscription if they're locked out and land anywhere else.
+  useEffect(() => {
+    if (restricted && !RESTRICTED_PATHS.some((p) => location.pathname.startsWith(p))) {
+      navigate('/billing', { replace: true });
+    }
+  }, [restricted, location.pathname]);
+
   const switchBranch = async (tenantId) => {
     if (tenantId === user?.tenantId) return;
     const { data } = await api.post('/auth/switch-branch', { tenantId });
@@ -192,9 +216,16 @@ export default function AdminLayout() {
 
   const unread = notifications.filter((n) => !n.isRead).length;
 
-  const markRead = async (id) => {
-    await api.patch(`/notifications/${id}/read`);
-    setNotifications((prev) => prev.map((n) => (n._id === id ? { ...n, isRead: true } : n)));
+  // Opening the bell clears it — "seen once, cleared" per the ask.
+  const handleToggleNotifs = () => {
+    setShowNotifs((v) => {
+      const next = !v;
+      if (next && unread > 0) {
+        api.patch('/notifications/mark-all-read').catch(() => {});
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      }
+      return next;
+    });
   };
 
   const handleLogout = async () => {
@@ -204,9 +235,11 @@ export default function AdminLayout() {
     navigate('/login');
   };
 
+  const fullNav = NAV_BY_ROLE[user?.role] || [];
+  const nav = restricted ? fullNav.filter((item) => RESTRICTED_PATHS.includes(item.to)) : fullNav;
   const currentLabel = nav.find((item) => item.end ? location.pathname === item.to : location.pathname.startsWith(item.to))?.label || '';
 
-  const sidebarProps = { nav, user, branches, switchBranch, notifications, showNotifs, setShowNotifs, unread, markRead };
+  const sidebarProps = { nav, user, branches, switchBranch, notifications, showNotifs, onToggleNotifs: handleToggleNotifs, unread };
 
   return (
     <div className="min-h-screen flex bg-[#f7f5f2]">
@@ -248,7 +281,7 @@ export default function AdminLayout() {
         <header className="sticky top-0 z-30 bg-white border-b px-4 py-3 flex items-center gap-3 shadow-sm" style={{ paddingTop: 'calc(0.75rem + var(--safe-top, 0px))' }}>
           <button
             onClick={() => setMobileNavOpen(true)}
-            className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 text-ink-900 flex-shrink-0"
+            className={`w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 text-ink-900 flex-shrink-0 ${isFieldStaff ? 'hidden' : 'md:hidden'}`}
             aria-label="Open menu"
           >
             <MenuIcon size={20} />
@@ -292,10 +325,22 @@ export default function AdminLayout() {
             </div>
           </div>
         </header>
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto overflow-x-hidden">
+
+        {restricted && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center gap-2 text-sm text-amber-800">
+            <AlertTriangle size={16} className="flex-shrink-0" />
+            {subscriptionStatus === 'pending_approval'
+              ? 'Your payment is awaiting super-admin approval. This unlocks automatically once approved.'
+              : 'Your subscription has ended. Please renew from the Subscription page to keep using the panel.'}
+          </div>
+        )}
+
+        <main className={`flex-1 p-4 md:p-6 overflow-y-auto overflow-x-hidden ${isFieldStaff ? 'pb-20 md:pb-6' : ''}`}>
           <Outlet />
         </main>
       </div>
+
+      {isFieldStaff && <StaffBottomNav role={user?.role} />}
     </div>
   );
 }

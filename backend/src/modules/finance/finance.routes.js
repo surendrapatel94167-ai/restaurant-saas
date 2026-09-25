@@ -2,10 +2,11 @@ import express from 'express';
 import * as controller from './finance.controller.js';
 import authenticate from '../../middlewares/authenticate.js';
 import authorizeRole from '../../middlewares/authorizeRole.js';
+import requireActiveSubscription from '../../middlewares/requireActiveSubscription.js';
 
 const router = express.Router();
 
-router.use(authenticate, authorizeRole('hotel_admin', 'manager'));
+router.use(authenticate, authorizeRole('hotel_admin', 'manager'), requireActiveSubscription);
 
 router.get('/dashboard', controller.salesDashboard);
 router.get('/pnl', controller.profitAndLoss);
