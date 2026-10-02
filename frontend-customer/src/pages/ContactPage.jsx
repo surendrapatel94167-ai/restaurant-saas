@@ -12,7 +12,7 @@ export default function ContactPage() {
   }, [tenantSlug]);
 
   return (
-    <div className="max-w-lg mx-auto min-h-screen bg-[#fbf7f4] px-4 pb-24">
+    <div className="max-w-lg mx-auto min-h-screen bg-[#F7F8FA] px-4 pb-24">
       <header className="bg-gradient-to-r from-ink-950 to-brand-800 text-white p-5 sticky top-0 z-10 rounded-b-2xl shadow-lg flex items-center gap-3">
         <button onClick={() => navigate(`/menu/${tenantSlug}/${tableId}`)} className="text-lg">←</button>
         <h1 className="text-lg font-bold">Contact {info?.hotelName || ''}</h1>

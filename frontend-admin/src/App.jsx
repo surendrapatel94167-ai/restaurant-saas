@@ -18,6 +18,7 @@ import TablesPage from './pages/tables/TablesPage';
 import BillingPage from './pages/billing/BillingPage';
 import AnalyticsPage from './pages/analytics/AnalyticsPage';
 import LiveOrdersPage from './pages/live-orders/LiveOrdersPage';
+import DashboardPage from './pages/dashboard/DashboardPage';
 import CustomersPage from './pages/customers/CustomersPage';
 import SuperAdminDashboard from './pages/super-admin/SuperAdminDashboard';
 import AddHotelPage from './pages/super-admin/AddHotelPage';
@@ -33,7 +34,7 @@ import PendingPaymentsPage from './pages/pending-payments/PendingPaymentsPage';
 function HomeRedirect() {
   const { user } = useSelector((s) => s.auth);
   if (user?.role === 'super_admin') return <Navigate to="/super-admin" replace />;
-  if (['hotel_admin', 'manager'].includes(user?.role)) return <Navigate to="/live-orders" replace />;
+  if (['hotel_admin', 'manager'].includes(user?.role)) return <Navigate to="/dashboard" replace />;
   return <Navigate to="/kds" replace />;
 }
 
@@ -67,6 +68,7 @@ export default function App() {
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['hotel_admin', 'manager']} />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/live-orders" element={<LiveOrdersPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/reviews" element={<ReviewsPage />} />

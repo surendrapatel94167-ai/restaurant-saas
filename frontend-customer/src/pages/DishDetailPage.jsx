@@ -29,7 +29,7 @@ export default function DishDetailPage() {
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-[#fbf7f4] flex flex-col items-center justify-center px-6 text-center">
+      <div className="min-h-screen bg-[#F7F8FA] flex flex-col items-center justify-center px-6 text-center">
         <span className="text-5xl mb-4">🍽️</span>
         <h1 className="text-xl font-bold text-ink-900">Dish not found</h1>
         <button onClick={() => navigate(`/menu/${tenantSlug}/${tableId}/items`)} className="mt-4 text-brand-600 font-medium">← Back to menu</button>
@@ -53,7 +53,7 @@ export default function DishDetailPage() {
   };
 
   return (
-    <div className="max-w-lg mx-auto pb-40 min-h-screen bg-[#fbf7f4]">
+    <div className="max-w-lg mx-auto pb-40 min-h-screen bg-[#F7F8FA]">
       <header className="sticky top-0 z-10 p-4">
         <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full bg-white/90 shadow-card flex items-center justify-center text-lg">←</button>
       </header>

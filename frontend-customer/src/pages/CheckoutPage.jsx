@@ -140,7 +140,7 @@ export default function CheckoutPage() {
     // from their side (Live Orders → Mark Payment as Paid).
     const upiLink = `upi://pay?pa=${encodeURIComponent(upiId || 'restaurant@upi')}&pn=${encodeURIComponent(hotelName || 'Restaurant')}&am=${payingOrder.totalAmount}&cu=INR&tn=${encodeURIComponent('Order ' + payingOrder._id.slice(-6))}`;
     return (
-      <div className="max-w-lg mx-auto min-h-screen bg-[#fbf7f4] flex flex-col items-center justify-center px-6 text-center">
+      <div className="max-w-lg mx-auto min-h-screen bg-[#F7F8FA] flex flex-col items-center justify-center px-6 text-center">
         <h1 className="text-lg font-bold text-ink-900 mb-1">Pay via UPI</h1>
         <p className="text-sm text-gray-500 mb-6">
           Pay exactly <span className="font-semibold text-ink-900">₹{payingOrder.totalAmount}</span> to {hotelName}

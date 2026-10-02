@@ -23,6 +23,7 @@ const NAV_BY_ROLE = {
     { to: '/my-profile', label: 'My Profile', icon: UserCog },
   ],
   hotel_admin: [
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
     { to: '/live-orders', label: 'Live Orders', icon: Bell },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
     { to: '/kds', label: 'Kitchen Display', icon: Flame },
@@ -39,6 +40,7 @@ const NAV_BY_ROLE = {
     { to: '/my-profile', label: 'My Profile', icon: UserCog },
   ],
   manager: [
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
     { to: '/live-orders', label: 'Live Orders', icon: Bell },
     { to: '/analytics', label: 'Analytics', icon: BarChart3 },
     { to: '/kds', label: 'Kitchen Display', icon: Flame },
@@ -242,9 +244,9 @@ export default function AdminLayout() {
   const sidebarProps = { nav, user, branches, switchBranch, notifications, showNotifs, onToggleNotifs: handleToggleNotifs, unread };
 
   return (
-    <div className="min-h-screen flex bg-[#f7f5f2]">
+    <div className="min-h-screen flex bg-[#F3F4F8]">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:sticky md:top-0 md:h-screen w-64 bg-gradient-to-b from-ink-950 to-[#171426] text-gray-300 flex-col shadow-2xl flex-shrink-0">
+      <aside className="hidden md:flex md:sticky md:top-0 md:h-screen w-64 bg-gradient-to-b from-ink-950 to-ink-900 text-gray-300 flex-col shadow-2xl flex-shrink-0">
         <SidebarContent {...sidebarProps} />
         <div className="p-4 border-t border-white/10 text-sm">
           <div className="flex items-center gap-2 text-gray-200">
@@ -261,7 +263,7 @@ export default function AdminLayout() {
       {mobileNavOpen && (
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileNavOpen(false)} />
-          <aside className="relative w-72 max-w-[80vw] bg-gradient-to-b from-ink-950 to-[#171426] text-gray-300 flex flex-col shadow-2xl h-full">
+          <aside className="relative w-72 max-w-[80vw] bg-gradient-to-b from-ink-950 to-ink-900 text-gray-300 flex flex-col shadow-2xl h-full">
             <SidebarContent {...sidebarProps} onNavigate={() => setMobileNavOpen(false)} />
             <div className="p-4 border-t border-white/10 text-sm">
               <div className="flex items-center gap-2 text-gray-200">

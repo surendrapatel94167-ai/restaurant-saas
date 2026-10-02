@@ -1,4 +1,5 @@
 import Order from '../../models/Order.model.js';
+import Table from '../../models/Table.model.js';
 
 function daysAgo(n) {
   const d = new Date();
@@ -101,6 +102,65 @@ export async function getDishPerformance(req, res, next) {
     res.json({
       topSellers: rows.slice(0, 10),
       leastPopular: [...rows].reverse().slice(0, 10),
+    });
+  } catch (err) { next(err); }
+}
+
+// Everything the Dashboard page needs in one call: stat cards, a 7-day
+// revenue line, live table occupancy (derived from active orders — nothing
+// new is written to the DB), the most recent orders, and what's still
+// waiting on the kitchen.
+export async function getDashboard(req, res, next) {
+  try {
+    const todayStart = daysAgo(0);
+    const weekStart = daysAgo(6);
+
+    const [todayAgg, allTables, activeOrders, pendingOrdersCount, recentOrders, pendingKot, trendRows] = await Promise.all([
+      Order.aggregate([
+        { $match: { tenantId: req.tenantId, 'payment.status': 'PAID', createdAt: { $gte: todayStart } } },
+        { $group: { _id: null, revenue: { $sum: '$totalAmount' }, orders: { $sum: 1 } } },
+      ]),
+      Table.forTenant(req.tenantId).sort({ tableNumber: 1 }),
+      // Any order still in progress "occupies" its table — no stored table
+      // state to keep in sync, just derived live from orders each time.
+      Order.forTenant(req.tenantId).where({ status: { $ne: 'COMPLETED' }, tableId: { $ne: null } }).select('tableId'),
+      Order.countDocuments({ tenantId: req.tenantId, status: 'WAITING_FOR_CONFIRMATION' }),
+      Order.forTenant(req.tenantId).sort({ createdAt: -1 }).limit(6),
+      Order.forTenant(req.tenantId).where({ status: { $in: ['WAITING_FOR_CONFIRMATION', 'CONFIRMED', 'PREPARING'] } })
+        .sort({ createdAt: -1 }).limit(6),
+      Order.aggregate([
+        { $match: { tenantId: req.tenantId, 'payment.status': 'PAID', createdAt: { $gte: weekStart } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, revenue: { $sum: '$totalAmount' } } },
+        { $sort: { _id: 1 } },
+      ]),
+    ]);
+
+    const occupiedTableIds = new Set(activeOrders.map((o) => String(o.tableId)));
+    const tableStatus = allTables.map((t) => ({
+      _id: t._id,
+      tableNumber: t.tableNumber,
+      status: occupiedTableIds.has(String(t._id)) ? 'occupied' : 'available',
+    }));
+
+    const byDate = new Map(trendRows.map((r) => [r._id, r.revenue]));
+    const salesOverview = [];
+    for (let i = 6; i >= 0; i--) {
+      const key = daysAgo(i).toISOString().slice(0, 10);
+      salesOverview.push({ date: key, revenue: byDate.get(key) || 0 });
+    }
+
+    res.json({
+      stats: {
+        totalSalesToday: todayAgg[0]?.revenue || 0,
+        totalOrdersToday: todayAgg[0]?.orders || 0,
+        pendingOrders: pendingOrdersCount,
+        tablesAvailable: tableStatus.filter((t) => t.status === 'available').length,
+        tablesTotal: tableStatus.length,
+      },
+      salesOverview,
+      tableStatus,
+      recentOrders,
+      pendingKot,
     });
   } catch (err) { next(err); }
 }

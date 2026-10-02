@@ -2,18 +2,12 @@ import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import api from '../../api/axios';
 import { connectSocket } from '../../sockets/socket';
+import StatusBadge from '../../components/StatusBadge';
 
 const NEXT_STATUS = {
   CONFIRMED: 'PREPARING',
   PREPARING: 'READY',
   READY: 'COMPLETED',
-};
-
-const STATUS_COLOR = {
-  CONFIRMED: 'bg-blue-100 text-blue-800',
-  PREPARING: 'bg-orange-100 text-orange-800',
-  READY: 'bg-green-100 text-green-800',
-  COMPLETED: 'bg-gray-100 text-gray-600',
 };
 
 export default function KdsPage() {
@@ -87,7 +81,7 @@ export default function KdsPage() {
           <div key={order._id} className="bg-white rounded-xl shadow-card p-4 flex flex-col border-t-4 border-brand-500">
             <div className="flex justify-between items-center mb-1">
               <span className="font-semibold text-ink-900">Table {order.tableNumber || '—'}</span>
-              <span className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_COLOR[order.status]}`}>{order.status}</span>
+              <StatusBadge status={order.status} />
             </div>
             {order.preparationTime && (
               <p className="text-xs text-gray-500 mb-2">⏱ Prep time: {order.preparationTime} min</p>

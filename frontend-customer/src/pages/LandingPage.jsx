@@ -83,7 +83,7 @@ export default function LandingPage() {
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-[#fbf7f4] flex flex-col items-center justify-center px-6 pb-20 text-center">
+      <div className="min-h-screen bg-[#F7F8FA] flex flex-col items-center justify-center px-6 pb-20 text-center">
         <span className="text-5xl mb-4">🔍</span>
         <h1 className="text-xl font-bold text-ink-900">Restaurant not found</h1>
         <p className="text-gray-500 mt-2 text-sm max-w-xs">
@@ -94,7 +94,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fbf7f4] flex flex-col items-center justify-center px-6 pb-20">
+    <div className="min-h-screen bg-[#F7F8FA] flex flex-col items-center justify-center px-6 pb-20">
       <div className="w-full max-w-sm text-center">
         {info?.logoUrl ? (
           <img src={info.logoUrl} alt={info.hotelName} className="w-20 h-20 rounded-2xl object-cover mx-auto mb-4 shadow-card" />

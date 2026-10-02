@@ -41,7 +41,7 @@ export default function ReviewPage() {
 
   if (done) {
     return (
-      <div className="max-w-lg mx-auto min-h-screen bg-[#fbf7f4] flex flex-col items-center justify-center px-6 pb-20 text-center">
+      <div className="max-w-lg mx-auto min-h-screen bg-[#F7F8FA] flex flex-col items-center justify-center px-6 pb-20 text-center">
         <span className="text-5xl mb-4">🙏</span>
         <h1 className="text-xl font-bold text-ink-900">Thanks for your review!</h1>
         <p className="text-gray-500 mt-2 text-sm">It'll appear on our review page once approved.</p>
@@ -53,7 +53,7 @@ export default function ReviewPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto min-h-screen bg-[#fbf7f4] px-4 pb-24">
+    <div className="max-w-lg mx-auto min-h-screen bg-[#F7F8FA] px-4 pb-24">
       <header className="bg-gradient-to-r from-ink-950 to-brand-800 text-white p-5 sticky top-0 z-10 rounded-b-2xl shadow-lg flex items-center gap-3">
         <button onClick={() => navigate(`/menu/${tenantSlug}/${tableId}`)} className="text-lg">←</button>
         <h1 className="text-lg font-bold">Rate your meal</h1>

@@ -8,6 +8,7 @@ const router = express.Router();
 
 router.use(authenticate, authorizeRole('hotel_admin', 'manager'), requireActiveSubscription);
 
+router.get('/dashboard', controller.getDashboard);
 router.get('/summary', controller.getSummary);
 router.get('/revenue-trend', controller.getRevenueTrend);
 router.get('/dish-performance', controller.getDishPerformance);

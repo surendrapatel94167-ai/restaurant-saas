@@ -70,11 +70,11 @@ export default function AnalyticsPage() {
         <h2 className="font-semibold mb-3">Revenue Trend</h2>
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={trendData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
             <XAxis dataKey="label" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} />
             <Tooltip formatter={(v, name) => [name === 'revenue' ? `₹${v}` : v, name === 'revenue' ? 'Revenue' : 'Orders']} />
-            <Line type="monotone" dataKey="revenue" stroke="#d97706" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="revenue" stroke="#F2560A" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -83,11 +83,11 @@ export default function AnalyticsPage() {
         <h2 className="font-semibold mb-3">Orders per Day</h2>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={trendData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
             <XAxis dataKey="label" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
             <Tooltip />
-            <Bar dataKey="orders" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="orders" fill="#FF8438" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -96,11 +96,11 @@ export default function AnalyticsPage() {
         <h2 className="font-semibold mb-3">Peak Hours (orders by hour)</h2>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={peakData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0ebe4" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
             <XAxis dataKey="label" tick={{ fontSize: 10 }} interval={1} />
             <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
             <Tooltip />
-            <Bar dataKey="orders" fill="#7c3aed" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="orders" fill="#1A2234" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

@@ -7,15 +7,23 @@ export default {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
-        // Warm terracotta — primary brand color across both apps
+        // Vivid orange — primary brand color across both apps
         brand: {
-          50: '#fff4ed', 100: '#ffe6d5', 200: '#fec9a4', 300: '#fda76b',
-          400: '#fb7f35', 500: '#f4600f', 600: '#e34a09', 700: '#bc370a',
-          800: '#952c10', 900: '#792710',
+          50: '#fff4ed', 100: '#ffe4d1', 200: '#ffc49d', 300: '#ffa266',
+          400: '#ff8438', 500: '#ff6b1a', 600: '#f2560a', 700: '#c9440a',
+          800: '#9e3710', 900: '#7a2d11',
         },
-        // Warm near-black for the admin sidebar / dark surfaces
+        // Deep navy — admin sidebar / dark surfaces
         ink: {
-          800: '#2a211c', 900: '#1c1512', 950: '#120d0b',
+          800: '#26304a', 900: '#1a2234', 950: '#10151f',
+        },
+        // Status colors — consistent pill/badge palette used across KDS,
+        // Live Orders, Pending Payments, etc.
+        status: {
+          pending: '#f59e0b', // amber
+          progress: '#f2560a', // brand orange
+          success: '#16a34a', // green
+          danger: '#dc2626', // red
         },
       },
       boxShadow: {
