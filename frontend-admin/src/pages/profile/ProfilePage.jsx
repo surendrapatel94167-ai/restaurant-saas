@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
 import { useToast } from '../../components/ToastProvider';
+import { validatePhone } from '../../utils/validators';
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -16,6 +17,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const toast = useToast();
   const [savedMsg, setSavedMsg] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const load = async () => {
     const { data } = await api.get('/tenant/me');
@@ -33,6 +35,14 @@ export default function ProfilePage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    const errs = {};
+    const contactErr = validatePhone(tenant.settings?.contactPhoneDisplay, { required: false });
+    const waErr = validatePhone(tenant.settings?.whatsappBusinessNumber, { required: false });
+    if (contactErr) errs.contactPhoneDisplay = contactErr;
+    if (waErr) errs.whatsappBusinessNumber = waErr;
+    if (!tenant.hotelName?.trim()) errs.hotelName = 'Restaurant name is required';
+    setFieldErrors(errs);
+    if (Object.keys(errs).length) return;
     setSaving(true);
     setSavedMsg('');
     try {
@@ -53,7 +63,7 @@ export default function ProfilePage() {
       toast.success('Restaurant profile updated');
       setTimeout(() => setSavedMsg(''), 2000);
     } catch (err) {
-      toast.error('Failed to save changes');
+      toast.error(err.response?.data?.message || 'Failed to save changes');
     } finally {
       setSaving(false);
     }
@@ -92,6 +102,7 @@ export default function ProfilePage() {
           <label className="block text-sm text-gray-600 mb-1">Restaurant name</label>
           <input value={tenant.hotelName || ''} onChange={(e) => set('hotelName', e.target.value)}
             className="w-full border rounded-lg px-3 py-2" />
+          {fieldErrors.hotelName && <p className="text-red-500 text-xs mt-1">{fieldErrors.hotelName}</p>}
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Address</label>
@@ -111,13 +122,17 @@ export default function ProfilePage() {
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">Contact phone (shown to guests)</label>
-            <input value={tenant.settings?.contactPhoneDisplay || ''} onChange={(e) => set('settings.contactPhoneDisplay', e.target.value)}
+            <input value={tenant.settings?.contactPhoneDisplay || ''} inputMode="numeric" maxLength={10} placeholder="10-digit number"
+              onChange={(e) => set('settings.contactPhoneDisplay', e.target.value.replace(/\D/g, ''))}
               className="w-full border rounded-lg px-3 py-2" />
+            {fieldErrors.contactPhoneDisplay && <p className="text-red-500 text-xs mt-1">{fieldErrors.contactPhoneDisplay}</p>}
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">WhatsApp Business number</label>
-            <input value={tenant.settings?.whatsappBusinessNumber || ''} onChange={(e) => set('settings.whatsappBusinessNumber', e.target.value)}
-              placeholder="Bills are sent from this number" className="w-full border rounded-lg px-3 py-2" />
+            <input value={tenant.settings?.whatsappBusinessNumber || ''} inputMode="numeric" maxLength={10}
+              onChange={(e) => set('settings.whatsappBusinessNumber', e.target.value.replace(/\D/g, ''))}
+              placeholder="10-digit number — bills are sent from it" className="w-full border rounded-lg px-3 py-2" />
+            {fieldErrors.whatsappBusinessNumber && <p className="text-red-500 text-xs mt-1">{fieldErrors.whatsappBusinessNumber}</p>}
           </div>
           <div className="col-span-2">
             <label className="block text-sm text-gray-600 mb-1">UPI ID (for the payment QR)</label>

@@ -1,6 +1,6 @@
 import Table from '../../models/Table.model.js';
 import Tenant from '../../models/Tenant.model.js';
-import Notification from '../../models/Notification.model.js';
+import { notifySuperAdmin } from '../../services/notify.service.js';
 import * as qrcodeService from '../../services/qrcode.service.js';
 import { CUSTOMER_APP_URL } from '../../config/env.js';
 
@@ -26,11 +26,11 @@ export async function create(req, res, next) {
     table.qrCodeUrl = qrDataUrl;
     await table.save();
 
-    await Notification.create({
-      recipientType: 'super_admin',
+    await notifySuperAdmin({
       tenantId: req.tenantId,
       type: 'table_added',
       message: `${tenant.hotelName} added a new table (Table ${table.tableNumber}).`,
+      pushTitle: 'New table added',
     });
 
     res.status(201).json({ ...table.toObject(), qrUrl: url });
@@ -54,7 +54,22 @@ export async function regenerate(req, res, next) {
 
 export async function remove(req, res, next) {
   try {
-    await Table.findOneAndDelete({ _id: req.params.id, tenantId: req.tenantId });
+    const deleted = await Table.findOneAndDelete({ _id: req.params.id, tenantId: req.tenantId });
+    if (!deleted) return res.status(404).json({ message: 'Table not found (maybe already removed)' });
     res.status(204).send();
+  } catch (err) { next(err); }
+}
+
+// Delete several tables at once ({ ids: [...] }) or every table ({ all: true }).
+export async function bulkRemove(req, res, next) {
+  try {
+    const { ids, all } = req.body;
+    const filter = { tenantId: req.tenantId };
+    if (!all) {
+      if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ message: 'Select at least one table' });
+      filter._id = { $in: ids };
+    }
+    const result = await Table.deleteMany(filter);
+    res.json({ deleted: result.deletedCount });
   } catch (err) { next(err); }
 }

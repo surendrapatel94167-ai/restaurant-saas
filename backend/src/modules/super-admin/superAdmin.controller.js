@@ -10,7 +10,9 @@ import Review from '../../models/Review.model.js';
 import Notification from '../../models/Notification.model.js';
 import { hashPassword } from '../auth/auth.service.js';
 import * as qrcodeService from '../../services/qrcode.service.js';
+import Customer from '../../models/Customer.model.js';
 import { CUSTOMER_APP_URL } from '../../config/env.js';
+import { validatePhone, validatePassword, validateName } from '../../utils/validators.js';
 
 export async function listTenants(req, res, next) {
   try {
@@ -60,10 +62,16 @@ export async function listAdmins(req, res, next) {
 export async function onboardTenant(req, res, next) {
   try {
     const {
-      hotelName, slug, ownerName, contactEmail, contactPhone, address,
+      hotelName, ownerName, contactEmail, contactPhone, address,
       adminName, adminPassword, tableCount = 10, trialDays = 5,
       linkToExistingAdminEmail, // multi-branch: attach this new hotel to an admin who already has a login
     } = req.body;
+    // Slugs are stored lowercase — always build QR links from the lowercase
+    // value, otherwise "Surendra" in the QR never matches "surendra" in the DB.
+    const slug = String(req.body.slug || '').toLowerCase().trim();
+    if (!slug) return res.status(400).json({ message: 'slug is required' });
+    const phoneErr = validatePhone(contactPhone, { required: false });
+    if (phoneErr) return res.status(400).json({ message: `Contact phone: ${phoneErr}` });
 
     const existing = await Tenant.findOne({ slug });
     if (existing) return res.status(400).json({ message: 'Slug already taken' });
@@ -76,7 +84,7 @@ export async function onboardTenant(req, res, next) {
 
     let admin;
     if (linkToExistingAdminEmail) {
-      admin = await User.findOne({ email: linkToExistingAdminEmail, role: 'hotel_admin' });
+      admin = await User.findOne({ email: String(linkToExistingAdminEmail).toLowerCase().trim(), role: 'hotel_admin' });
       if (!admin) return res.status(404).json({ message: 'No existing admin found with that email' });
       admin.linkedTenantIds = [...new Set([...(admin.linkedTenantIds || []).map(String), String(tenant._id)])];
       await admin.save();
@@ -84,6 +92,8 @@ export async function onboardTenant(req, res, next) {
       if (!adminName || !adminPassword) {
         return res.status(400).json({ message: 'adminName and adminPassword are required for a new admin login' });
       }
+      const adminErr = validateName(adminName, 'Admin name') || validatePassword(adminPassword);
+      if (adminErr) return res.status(400).json({ message: adminErr });
       admin = await User.create({
         tenantId: tenant._id,
         name: adminName,
@@ -123,11 +133,16 @@ export async function onboardMultiBranch(req, res, next) {
       return res.status(400).json({ message: 'Provide at least 2 branches (for a single restaurant, use the regular Add Hotel form)' });
     }
 
-    const existingAdmin = await User.findOne({ email: contactEmail });
+    const mbErr = validateName(adminName, 'Admin name') || validatePassword(adminPassword)
+      || validatePhone(contactPhone, { required: false });
+    if (mbErr) return res.status(400).json({ message: mbErr });
+
+    const existingAdmin = await User.findOne({ email: String(contactEmail).toLowerCase().trim() });
     if (existingAdmin) return res.status(400).json({ message: 'An account with this email already exists' });
 
     for (const b of branches) {
       if (!b.hotelName || !b.slug) return res.status(400).json({ message: 'Every branch needs a hotel name and slug' });
+      b.slug = String(b.slug).toLowerCase().trim();
       const existingTenant = await Tenant.findOne({ slug: b.slug });
       if (existingTenant) return res.status(400).json({ message: `Slug already taken: ${b.slug}` });
     }
@@ -280,9 +295,8 @@ export async function approveSubscription(req, res, next) {
 export async function resetAdminPassword(req, res, next) {
   try {
     const { newPassword } = req.body;
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ message: 'newPassword must be at least 6 characters' });
-    }
+    const pwErr = validatePassword(newPassword);
+    if (pwErr) return res.status(400).json({ message: pwErr });
     const admin = await User.findOne({ tenantId: req.params.tenantId, role: 'hotel_admin' });
     if (!admin) return res.status(404).json({ message: 'Admin account not found for this hotel' });
     admin.passwordHash = await hashPassword(newPassword);
@@ -313,5 +327,47 @@ export async function sendMessage(req, res, next) {
     })));
 
     res.status(201).json({ sent: targets.length });
+  } catch (err) { next(err); }
+}
+
+// Hotel-by-hotel overview for the super-admin dashboard: each restaurant's
+// admin, every staff member, and every customer (name + phone, so the
+// super-admin can actually reach them).
+export async function overview(req, res, next) {
+  try {
+    const tenants = await Tenant.find().sort({ createdAt: -1 }).lean();
+    const hotels = await Promise.all(tenants.map(async (t) => {
+      const [users, customers] = await Promise.all([
+        User.find({ tenantId: t._id }).select('name email phone role isActive').lean(),
+        Customer.find({ tenantId: t._id }).select('name phone totalOrders lastOrderAt').sort({ lastOrderAt: -1 }).limit(500).lean(),
+      ]);
+      return {
+        _id: t._id,
+        hotelName: t.hotelName,
+        slug: t.slug,
+        address: t.address,
+        isActive: t.isActive,
+        subscription: t.subscription,
+        admin: users.find((u) => u.role === 'hotel_admin') || null,
+        staff: users.filter((u) => u.role !== 'hotel_admin'),
+        customers,
+      };
+    }));
+    res.json(hotels);
+  } catch (err) { next(err); }
+}
+
+// Approve a staff member's deletion request: removes their account (and any
+// pending request notifications for them).
+export async function deleteStaffAccount(req, res, next) {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'Account not found (maybe already deleted)' });
+    if (['super_admin', 'hotel_admin'].includes(user.role)) {
+      return res.status(400).json({ message: 'Only staff accounts can be deleted from here' });
+    }
+    await user.deleteOne();
+    await Notification.deleteMany({ type: 'staff_deletion_request', 'meta.userId': String(user._id) });
+    res.status(204).send();
   } catch (err) { next(err); }
 }

@@ -7,7 +7,7 @@ export default async function tenantScope(req, res, next) {
       return res.status(400).json({ message: 'Tenant not specified' });
     }
 
-    const tenant = await Tenant.findOne({ slug: tenantSlug, isActive: true });
+    const tenant = await Tenant.findOne({ slug: String(tenantSlug).toLowerCase().trim(), isActive: true });
     if (!tenant) {
       return res.status(404).json({ message: 'Restaurant not found or inactive' });
     }

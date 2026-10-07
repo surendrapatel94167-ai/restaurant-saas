@@ -1,5 +1,7 @@
 import Tenant from '../../models/Tenant.model.js';
+import { notifySuperAdmin } from '../../services/notify.service.js';
 import Notification from '../../models/Notification.model.js';
+import { validatePhone } from '../../utils/validators.js';
 import PlatformSettings from '../../models/PlatformSettings.model.js';
 import * as paymentService from '../../services/payment.service.js';
 import { uploadIfBase64 } from '../../services/cloudinary.service.js';
@@ -17,6 +19,14 @@ export async function getMine(req, res, next) {
 export async function updateMine(req, res, next) {
   try {
     const { hotelName, logoUrl, address, settings = {} } = req.body;
+    // Phone numbers shown to guests must be real 10-digit numbers.
+    for (const [key, label] of [['contactPhoneDisplay', 'Contact phone'], ['whatsappBusinessNumber', 'WhatsApp number']]) {
+      const err = validatePhone(settings[key], { required: false });
+      if (err) return res.status(400).json({ message: `${label}: ${err}` });
+    }
+    if (hotelName !== undefined && String(hotelName).trim().length < 2) {
+      return res.status(400).json({ message: 'Restaurant name is required' });
+    }
     const update = {};
     if (hotelName !== undefined) update.hotelName = hotelName;
     if (logoUrl) update.logoUrl = await uploadIfBase64(logoUrl, 'logos');
@@ -91,11 +101,12 @@ export async function confirmRenewalPayment(req, res, next) {
     tenant.subscription.pendingSince = new Date();
     await tenant.save();
 
-    await Notification.create({
-      recipientType: 'super_admin',
+    await notifySuperAdmin({
       tenantId: tenant._id,
       type: 'subscription_payment_pending',
       message: `${tenant.hotelName} says they've paid for the ${chosenPlan} plan — please verify and approve.`,
+      meta: { plan: chosenPlan },
+      pushTitle: '💰 Subscription payment received',
     });
 
     res.json({ subscription: tenant.subscription });

@@ -14,13 +14,16 @@ export default function LandingPage() {
   const [lastOrder, setLastOrder] = useState(null);
   const [reordering, setReordering] = useState(false);
   const [visits, setVisits] = useState(null);
+  const [loadError, setLoadError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    setLoadError(false);
     api.get(`/customer/${tenantSlug}/landing`)
       .then(({ data }) => setInfo(data))
       .catch((err) => {
         if (err.response?.status === 404) setNotFound(true);
-        else setInfo({});
+        else setLoadError(true); // server down / CORS / no internet — offer a retry instead of a blank page
       });
 
     const phone = localStorage.getItem('customerPhone');
@@ -32,7 +35,7 @@ export default function LandingPage() {
         .then(({ data }) => { if (data.isReturning) setVisits(data); })
         .catch(() => {});
     }
-  }, [tenantSlug]);
+  }, [tenantSlug, attempt]);
 
   const reorder = async () => {
     setReordering(true);
@@ -89,6 +92,17 @@ export default function LandingPage() {
         <p className="text-gray-500 mt-2 text-sm max-w-xs">
           This QR code or link doesn't match any restaurant. Please rescan the table QR code, or check the link with the restaurant.
         </p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex flex-col items-center justify-center px-6 pb-20 text-center">
+        <span className="text-5xl mb-4">📡</span>
+        <h1 className="text-xl font-bold text-ink-900">Couldn't load the restaurant</h1>
+        <p className="text-gray-500 mt-2 text-sm max-w-xs">Please check your internet connection and try again.</p>
+        <button onClick={() => setAttempt((a) => a + 1)} className="mt-4 bg-brand-600 text-white px-5 py-2.5 rounded-lg font-medium">Try again</button>
       </div>
     );
   }

@@ -13,6 +13,10 @@ export async function punchIn(req, res, next) {
   try {
     const userId = req.body.userId || req.user.userId;
     const { selfieUrl, lat, lng } = req.body;
+    if (!selfieUrl) return res.status(400).json({ message: 'Camera photo is required to punch in — please turn on your camera.' });
+    if (typeof lat !== 'number' || typeof lng !== 'number' || Number.isNaN(lat) || Number.isNaN(lng)) {
+      return res.status(400).json({ message: 'Location is required to punch in — please turn on location.' });
+    }
     const today = startOfDay();
     let record = await Attendance.findOneForTenant(req.tenantId, { userId, date: today });
     if (record && record.punchIn) {
@@ -22,8 +26,8 @@ export async function punchIn(req, res, next) {
       record = new Attendance({ tenantId: req.tenantId, userId, date: today, status: 'present' });
     }
     record.punchIn = new Date();
-    if (selfieUrl) record.punchInSelfieUrl = await uploadIfBase64(selfieUrl, 'attendance');
-    if (lat !== undefined && lng !== undefined) record.punchInLocation = { lat, lng };
+    record.punchInSelfieUrl = await uploadIfBase64(selfieUrl, 'attendance');
+    record.punchInLocation = { lat, lng };
     await record.save();
     res.status(201).json(record);
   } catch (err) { next(err); }
@@ -33,14 +37,18 @@ export async function punchOut(req, res, next) {
   try {
     const userId = req.body.userId || req.user.userId;
     const { selfieUrl, lat, lng } = req.body;
+    if (!selfieUrl) return res.status(400).json({ message: 'Camera photo is required to punch out — please turn on your camera.' });
+    if (typeof lat !== 'number' || typeof lng !== 'number' || Number.isNaN(lat) || Number.isNaN(lng)) {
+      return res.status(400).json({ message: 'Location is required to punch out — please turn on location.' });
+    }
     const today = startOfDay();
     const record = await Attendance.findOneForTenant(req.tenantId, { userId, date: today });
     if (!record || !record.punchIn) {
       return res.status(400).json({ message: 'No punch-in found for today' });
     }
     record.punchOut = new Date();
-    if (selfieUrl) record.punchOutSelfieUrl = await uploadIfBase64(selfieUrl, 'attendance');
-    if (lat !== undefined && lng !== undefined) record.punchOutLocation = { lat, lng };
+    record.punchOutSelfieUrl = await uploadIfBase64(selfieUrl, 'attendance');
+    record.punchOutLocation = { lat, lng };
     const hours = (record.punchOut - record.punchIn) / (1000 * 60 * 60);
     record.hoursWorked = Math.round(hours * 100) / 100;
     record.overtimeHours = Math.max(0, Math.round((hours - 9) * 100) / 100);

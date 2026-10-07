@@ -5,6 +5,8 @@ import api from '../../api/axios';
 import { useConfirm } from '../../components/ConfirmProvider';
 import { useToast } from '../../components/ToastProvider';
 
+const MIN_PRICE_FOR_DISCOUNT = 500;
+const NEW_CATEGORY = '__new__';
 const emptyForm = { name: '', description: '', category: '', price: '', discountActive: false, discountPercentage: '', imageUrl: '', isVeg: true, spiceLevel: 'mild' };
 
 function fileToDataUrl(file) {
@@ -31,6 +33,7 @@ export default function MenuPage() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [addingCategory, setAddingCategory] = useState(false);
 
   const load = async () => {
     const { data } = await api.get('/menu');
@@ -41,6 +44,8 @@ export default function MenuPage() {
 
   const categories = useMemo(() => ['All', ...new Set(items.map((i) => i.category).filter(Boolean))], [items]);
 
+  const existingCategories = useMemo(() => categories.filter((c) => c !== 'All'), [categories]);
+
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       if (activeCategory !== 'All' && item.category !== activeCategory) return false;
@@ -49,7 +54,7 @@ export default function MenuPage() {
     });
   }, [items, activeCategory, search]);
 
-  const resetForm = () => { setForm(emptyForm); setEditingId(null); setFieldErrors({}); setError(''); setShowForm(false); };
+  const resetForm = () => { setForm(emptyForm); setAddingCategory(false); setEditingId(null); setFieldErrors({}); setError(''); setShowForm(false); };
 
   const handleImage = async (e) => {
     const file = e.target.files?.[0];
@@ -65,6 +70,11 @@ export default function MenuPage() {
     if (!form.name.trim()) errs.name = 'Dish name is required';
     if (!form.category.trim()) errs.category = 'Category is required';
     if (!form.price) errs.price = 'Price is required';
+    else if (Number(form.price) <= 0) errs.price = 'Price must be more than 0';
+    if (form.discountActive && Number(form.price) >= MIN_PRICE_FOR_DISCOUNT) {
+      const pct = Number(form.discountPercentage);
+      if (!pct || pct <= 0 || pct > 90) errs.discountPercentage = 'Enter a discount between 1 and 90%';
+    }
     setFieldErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -76,9 +86,10 @@ export default function MenuPage() {
       imageUrl: form.imageUrl,
       isVeg: form.isVeg,
       spiceLevel: form.spiceLevel,
+      // Discounts only exist on dishes priced ₹500+.
       discount: {
-        isActive: form.discountActive,
-        percentage: form.discountActive ? Number(form.discountPercentage) || 0 : 0,
+        isActive: form.discountActive && Number(form.price) >= MIN_PRICE_FOR_DISCOUNT,
+        percentage: form.discountActive && Number(form.price) >= MIN_PRICE_FOR_DISCOUNT ? Number(form.discountPercentage) || 0 : 0,
       },
     };
     try {
@@ -92,13 +103,15 @@ export default function MenuPage() {
       resetForm();
       load();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save item');
-      toast.error('Failed to save dish');
+      const message = err.response?.data?.message || 'Failed to save item';
+      setError(message);
+      toast.error(message);
     }
   };
 
   const startEdit = (item) => {
     setEditingId(item._id);
+    setAddingCategory(false);
     setFieldErrors({});
     setForm({
       name: item.name?.en || '',
@@ -115,17 +128,25 @@ export default function MenuPage() {
   };
 
   const toggleAvailability = async (id) => {
-    await api.patch(`/menu/${id}/toggle-availability`);
-    toast.success('Availability updated');
-    load();
+    try {
+      const { data } = await api.patch(`/menu/${id}/toggle-availability`);
+      toast.success(data?.isAvailable ? 'Dish is now available' : 'Dish marked out of stock');
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not update availability — please try again');
+    }
   };
 
   const removeItem = async (id) => {
     const ok = await confirm({ title: 'Remove this dish?', message: 'It will disappear from the customer menu.', danger: true });
     if (!ok) return;
-    await api.delete(`/menu/${id}`);
-    toast.success('Dish removed');
-    load();
+    try {
+      await api.delete(`/menu/${id}`);
+      toast.success('Dish removed');
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not remove dish');
+    }
   };
 
   return (
@@ -224,10 +245,11 @@ export default function MenuPage() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={resetForm}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          {/* Closes only via the X or Cancel button — never on an outside click,
+              so a half-filled form isn't lost by accident. */}
           <form
             onSubmit={handleSubmit}
-            onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-5 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center mb-4">
@@ -254,12 +276,34 @@ export default function MenuPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Category</label>
-                  <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="border rounded-lg px-3 py-2 w-full" />
+                  <select
+                    value={addingCategory ? NEW_CATEGORY : form.category}
+                    onChange={(e) => {
+                      if (e.target.value === NEW_CATEGORY) { setAddingCategory(true); setForm({ ...form, category: '' }); }
+                      else { setAddingCategory(false); setForm({ ...form, category: e.target.value }); }
+                    }}
+                    className="border rounded-lg px-3 py-2 w-full bg-white"
+                  >
+                    <option value="">Select category…</option>
+                    {existingCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+                    <option value={NEW_CATEGORY}>➕ Add new category</option>
+                  </select>
+                  {addingCategory && (
+                    <input autoFocus placeholder="New category name" value={form.category}
+                      onChange={(e) => setForm({ ...form, category: e.target.value })}
+                      className="border rounded-lg px-3 py-2 w-full mt-2" />
+                  )}
                   {fieldErrors.category && <p className="text-red-500 text-xs mt-1">{fieldErrors.category}</p>}
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">Price (₹)</label>
-                  <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="border rounded-lg px-3 py-2 w-full" />
+                  <input type="number" min="1" value={form.price}
+                    onChange={(e) => {
+                      const price = e.target.value;
+                      // Dropping below ₹500 switches any discount off.
+                      setForm({ ...form, price, ...(Number(price) < MIN_PRICE_FOR_DISCOUNT ? { discountActive: false, discountPercentage: '' } : {}) });
+                    }}
+                    className="border rounded-lg px-3 py-2 w-full" />
                   {fieldErrors.price && <p className="text-red-500 text-xs mt-1">{fieldErrors.price}</p>}
                 </div>
               </div>
@@ -288,17 +332,25 @@ export default function MenuPage() {
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                <input type="checkbox" checked={form.discountActive} onChange={(e) => setForm({ ...form, discountActive: e.target.checked })} />
-                On offer
-              </label>
-              {form.discountActive && (
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">Discount %</label>
-                  <input type="number" min="0" max="90" value={form.discountPercentage}
-                    onChange={(e) => setForm({ ...form, discountPercentage: e.target.value })}
-                    className="border rounded-lg px-3 py-2 w-28" />
-                </div>
+              {Number(form.price) >= MIN_PRICE_FOR_DISCOUNT && (
+                <>
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input type="checkbox" checked={form.discountActive} onChange={(e) => setForm({ ...form, discountActive: e.target.checked })} />
+                    On offer
+                  </label>
+                  {form.discountActive && (
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">Discount %</label>
+                      <input type="number" min="1" max="90" value={form.discountPercentage}
+                        onChange={(e) => setForm({ ...form, discountPercentage: e.target.value })}
+                        className="border rounded-lg px-3 py-2 w-28" />
+                      {fieldErrors.discountPercentage && <p className="text-red-500 text-xs mt-1">{fieldErrors.discountPercentage}</p>}
+                    </div>
+                  )}
+                </>
+              )}
+              {form.price !== '' && Number(form.price) < MIN_PRICE_FOR_DISCOUNT && (
+                <p className="text-xs text-gray-400">Discounts are available on dishes priced ₹{MIN_PRICE_FOR_DISCOUNT} and above.</p>
               )}
 
               {error && <p className="text-red-500 text-sm">{error}</p>}

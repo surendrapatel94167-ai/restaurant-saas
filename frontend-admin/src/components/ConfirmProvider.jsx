@@ -13,6 +13,7 @@ export default function ConfirmProvider({ children }) {
   const [state, setState] = useState(null);
   // state: { kind: 'confirm'|'prompt', title, message, danger, inputType, defaultValue }
   const [inputValue, setInputValue] = useState('');
+  const [inputError, setInputError] = useState('');
   const resolver = useRef(null);
 
   const confirm = useCallback(({ title = 'Are you sure?', message = '', danger = false } = {}) => {
@@ -20,9 +21,12 @@ export default function ConfirmProvider({ children }) {
     return new Promise((resolve) => { resolver.current = resolve; });
   }, []);
 
-  const promptFor = useCallback(({ title = 'Enter a value', message = '', inputType = 'text', defaultValue = '' } = {}) => {
-    setState({ kind: 'prompt', title, message, inputType });
+  // validate(value) → error string or ''. If it returns an error the dialog
+  // stays open and shows it in red instead of accepting the value.
+  const promptFor = useCallback(({ title = 'Enter a value', message = '', inputType = 'text', defaultValue = '', validate } = {}) => {
+    setState({ kind: 'prompt', title, message, inputType, validate });
     setInputValue(defaultValue);
+    setInputError('');
     return new Promise((resolve) => { resolver.current = resolve; });
   }, []);
 
@@ -30,6 +34,12 @@ export default function ConfirmProvider({ children }) {
     setState({ kind: 'alert', title, message });
     return new Promise((resolve) => { resolver.current = resolve; });
   }, []);
+
+  const submitPrompt = () => {
+    const err = state?.validate ? state.validate(inputValue) : '';
+    if (err) { setInputError(err); return; }
+    close(inputValue);
+  };
 
   const close = (result) => {
     setState(null);
@@ -53,21 +63,26 @@ export default function ConfirmProvider({ children }) {
                 <PasswordInput
                   autoFocus
                   value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm mb-4"
-                  onKeyDown={(e) => e.key === 'Enter' && close(inputValue)}
+                  onChange={(e) => { setInputValue(e.target.value); setInputError(''); }}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  onKeyDown={(e) => e.key === 'Enter' && submitPrompt()}
                 />
               ) : (
                 <input
                   autoFocus
                   type={state.inputType}
                   value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm mb-4"
-                  onKeyDown={(e) => e.key === 'Enter' && close(inputValue)}
+                  onChange={(e) => { setInputValue(e.target.value); setInputError(''); }}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  onKeyDown={(e) => e.key === 'Enter' && submitPrompt()}
                 />
               )
             )}
+
+            {state.kind === 'prompt' && (
+              <p className={`text-red-500 text-xs mt-1 mb-3 ${inputError ? '' : 'hidden'}`}>{inputError}</p>
+            )}
+            {state.kind === 'prompt' && !inputError && <div className="mb-4" />}
 
             <div className="flex justify-end gap-2">
               {state.kind !== 'alert' && (
@@ -76,7 +91,7 @@ export default function ConfirmProvider({ children }) {
                 </button>
               )}
               <button
-                onClick={() => close(state.kind === 'confirm' ? true : state.kind === 'alert' ? true : inputValue)}
+                onClick={() => (state.kind === 'prompt' ? submitPrompt() : close(true))}
                 className={`px-4 py-2 text-sm text-white font-medium rounded-lg ${state.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-brand-600 hover:bg-brand-700'}`}
               >
                 {state.kind === 'alert' ? 'OK' : state.kind === 'confirm' ? 'Confirm' : 'Save'}

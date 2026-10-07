@@ -8,6 +8,8 @@ const notificationSchema = new mongoose.Schema({
   type: { type: String, default: 'general' }, // e.g. 'subscription_expiry'
   message: { type: String, required: true },
   isRead: { type: Boolean, default: false },
+  // Optional structured data (e.g. who sent a staff deletion request).
+  meta: { type: mongoose.Schema.Types.Mixed },
 }, { timestamps: true });
 
 notificationSchema.index({ recipientType: 1, tenantId: 1, createdAt: -1 });

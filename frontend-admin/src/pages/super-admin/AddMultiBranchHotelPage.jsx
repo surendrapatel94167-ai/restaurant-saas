@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { validatePassword } from '../../utils/validators';
 import api from '../../api/axios';
 import PasswordInput from '../../components/PasswordInput';
 import { useToast } from '../../components/ToastProvider';
@@ -27,8 +28,7 @@ export default function AddMultiBranchHotelPage() {
     const errs = {};
     if (!owner.adminName.trim()) errs.adminName = 'Admin login name is required';
     if (!owner.contactEmail.trim()) errs.contactEmail = 'Contact email is required';
-    if (!owner.adminPassword.trim()) errs.adminPassword = 'Set a password';
-    else if (owner.adminPassword.length < 6) errs.adminPassword = 'At least 6 characters';
+    if (validatePassword(owner.adminPassword)) errs.adminPassword = validatePassword(owner.adminPassword);
     branches.forEach((b, i) => {
       if (!b.hotelName.trim()) errs[`branch_${i}_hotelName`] = 'Required';
       if (!b.slug.trim()) errs[`branch_${i}_slug`] = 'Required';

@@ -11,6 +11,7 @@ router.use(authenticate, authorizeRole('hotel_admin', 'manager'), requireActiveS
 router.get('/', controller.list);
 router.post('/', controller.create);
 router.post('/:id/regenerate', controller.regenerate);
+router.post('/bulk-delete', controller.bulkRemove);
 router.delete('/:id', controller.remove);
 
 export default router;

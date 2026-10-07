@@ -2,6 +2,26 @@ import User from '../../models/User.model.js';
 import { hashPassword } from '../auth/auth.service.js';
 import * as salaryService from '../../services/salary.service.js';
 import { uploadIfBase64 } from '../../services/cloudinary.service.js';
+import {
+  validateName, validateEmail, validatePhone, validatePassword, validateSalary,
+  validateDateRange, normalizeEmail, firstError,
+} from '../../utils/validators.js';
+
+const STAFF_ROLES = ['manager', 'chef', 'waiter', 'cashier'];
+
+function validateEmployment(ed) {
+  const amount = ed?.monthlySalary ?? ed?.dailyWage;
+  return {
+    salary: validateSalary(amount),
+    dates: validateDateRange(ed?.joinDate, ed?.endDate),
+  };
+}
+
+async function phoneTaken(phone, excludeId) {
+  const q = { phone: String(phone).trim() };
+  if (excludeId) q._id = { $ne: excludeId };
+  return !!(await User.exists(q));
+}
 
 // hotel_admin/manager manage their own restaurant's staff (cooks, waiters, cashiers...).
 // The list also carries this month's attendance + computed salary so the admin
@@ -33,16 +53,24 @@ export async function list(req, res, next) {
 
 export async function create(req, res, next) {
   try {
-    const { name, email, phone, password, role, employmentDetails, profileImageUrl } = req.body;
-    if (!name || !email || !password || !role) {
-      return res.status(400).json({ message: 'name, email, password and role are required' });
-    }
+    const { name, phone, password, role, employmentDetails, profileImageUrl } = req.body;
+    const email = normalizeEmail(req.body.email);
+    const emp = validateEmployment(employmentDetails);
+    const err = firstError({
+      name: validateName(name), email: validateEmail(email), phone: validatePhone(phone),
+      password: validatePassword(password), salary: emp.salary, dates: emp.dates,
+      role: STAFF_ROLES.includes(role) ? '' : 'Invalid role',
+    });
+    if (err) return res.status(400).json({ message: err });
+
     const existing = await User.findOne({ tenantId: req.tenantId, email });
     if (existing) return res.status(400).json({ message: 'A staff member with this email already exists' });
+    if (await User.exists({ email })) return res.status(400).json({ message: 'This email is already registered to another account' });
+    if (await phoneTaken(phone)) return res.status(400).json({ message: 'This mobile number is already used by another account' });
 
     const staff = await User.create({
       tenantId: req.tenantId,
-      name, email, phone, role,
+      name: String(name).trim(), email, phone: String(phone).trim(), role,
       profileImageUrl: await uploadIfBase64(profileImageUrl, 'staff'),
       passwordHash: await hashPassword(password),
       employmentDetails,
@@ -54,8 +82,20 @@ export async function create(req, res, next) {
 
 export async function update(req, res, next) {
   try {
-    const { name, phone, role, employmentDetails, profileImageUrl, email } = req.body;
-    const set = { name, phone, role, employmentDetails, email };
+    const { name, phone, role, employmentDetails, profileImageUrl } = req.body;
+    const email = normalizeEmail(req.body.email);
+    const emp = validateEmployment(employmentDetails);
+    const err = firstError({
+      name: validateName(name), email: validateEmail(email), phone: validatePhone(phone),
+      salary: emp.salary, dates: emp.dates,
+      role: STAFF_ROLES.includes(role) ? '' : 'Invalid role',
+    });
+    if (err) return res.status(400).json({ message: err });
+    if (await User.exists({ email, _id: { $ne: req.params.id } })) {
+      return res.status(400).json({ message: 'This email is already registered to another account' });
+    }
+    if (await phoneTaken(phone, req.params.id)) return res.status(400).json({ message: 'This mobile number is already used by another account' });
+    const set = { name: String(name).trim(), phone: String(phone).trim(), role, employmentDetails, email };
     if (profileImageUrl) set.profileImageUrl = await uploadIfBase64(profileImageUrl, 'staff');
     const staff = await User.findOneAndUpdate(
       { _id: req.params.id, tenantId: req.tenantId },
@@ -81,9 +121,8 @@ export async function toggleActive(req, res, next) {
 export async function resetPassword(req, res, next) {
   try {
     const { newPassword } = req.body;
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ message: 'newPassword must be at least 6 characters' });
-    }
+    const pwErr = validatePassword(newPassword);
+    if (pwErr) return res.status(400).json({ message: pwErr });
     const staff = await User.findOne({ _id: req.params.id, tenantId: req.tenantId });
     if (!staff) return res.status(404).json({ message: 'Staff member not found' });
     staff.passwordHash = await hashPassword(newPassword);

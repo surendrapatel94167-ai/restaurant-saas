@@ -3,6 +3,9 @@ import api from '../../api/axios';
 import { useConfirm } from '../../components/ConfirmProvider';
 import PasswordInput from '../../components/PasswordInput';
 import { useToast } from '../../components/ToastProvider';
+import {
+  validateName, validateEmail, validatePhone, validatePassword, validateSalary, validateDateRange,
+} from '../../utils/validators';
 
 const ROLES = ['manager', 'chef', 'waiter', 'cashier'];
 
@@ -62,15 +65,16 @@ export default function HrPage() {
   const submitStaff = async (e) => {
     e.preventDefault();
     setStaffError('');
-    const errs = {};
-    if (!staffForm.name.trim()) errs.name = 'Name is required';
-    if (!staffForm.email.trim()) errs.email = 'Email is required';
-    if (!editingId) {
-      if (!staffForm.password.trim()) errs.password = 'Set a password';
-      else if (staffForm.password.length < 6) errs.password = 'At least 6 characters';
-    }
-    if (!staffForm.salaryAmount) errs.salaryAmount = 'Enter an amount';
-    if (!staffForm.joinDate) errs.joinDate = 'Join date is required';
+    const errs = {
+      name: validateName(staffForm.name),
+      email: validateEmail(staffForm.email),
+      phone: validatePhone(staffForm.phone),
+      password: editingId ? '' : validatePassword(staffForm.password),
+      salaryAmount: validateSalary(staffForm.salaryAmount),
+      joinDate: !staffForm.joinDate ? 'Join date is required' : '',
+      endDate: staffForm.joinDate ? validateDateRange(staffForm.joinDate, staffForm.endDate) : '',
+    };
+    Object.keys(errs).forEach((k) => { if (!errs[k]) delete errs[k]; });
     setFieldErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -97,22 +101,26 @@ export default function HrPage() {
       resetForm();
       loadAll();
     } catch (err) {
-      setStaffError(err.response?.data?.message || 'Failed to save staff');
-      toast.error('Failed to save staff');
+      const message = err.response?.data?.message || 'Failed to save staff';
+      setStaffError(message);
+      toast.error(message);
     }
   };
 
   const toggleStaffActive = async (id) => {
-    await api.patch(`/staff/${id}/toggle-active`);
-    toast.success('Status updated');
-    loadAll();
+    try {
+      await api.patch(`/staff/${id}/toggle-active`);
+      toast.success('Status updated');
+      loadAll();
+    } catch (err) { toast.error(err.response?.data?.message || 'Could not update status'); }
   };
 
   const resetPassword = async (id) => {
     const newPassword = await prompt({
       title: 'Reset staff password',
-      message: 'Set a new password for this staff member (min 6 characters).',
+      message: 'Min 6 characters, with a letter, a number and a special character (e.g. @ # $ !).',
       inputType: 'password',
+      validate: validatePassword,
     });
     if (!newPassword) return;
     try {
@@ -159,15 +167,19 @@ export default function HrPage() {
             {fieldErrors.name && <p className="text-red-500 text-xs mt-1">{fieldErrors.name}</p>}
           </div>
           <div>
-            <input placeholder="Email" type="email" value={staffForm.email} onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })} className="border rounded px-2 py-1.5 w-full" />
+            <input placeholder="Email" type="text" autoComplete="off" value={staffForm.email} onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })} className="border rounded px-2 py-1.5 w-full" />
             {fieldErrors.email && <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>}
           </div>
-          <input placeholder="Phone" value={staffForm.phone} onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })} className="border rounded px-2 py-1.5" />
+          <div>
+            <input placeholder="Mobile (10 digits)" inputMode="numeric" maxLength={10} value={staffForm.phone}
+              onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value.replace(/\D/g, '') })} className="border rounded px-2 py-1.5 w-full" />
+            {fieldErrors.phone && <p className="text-red-500 text-xs mt-1">{fieldErrors.phone}</p>}
+          </div>
           {editingId ? (
             <p className="text-xs text-gray-400 self-center">Use "Reset PW" in the table to change their password.</p>
           ) : (
             <div>
-              <PasswordInput placeholder="Set password" value={staffForm.password} onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })} className="border rounded px-2 py-1.5 w-full" />
+              <PasswordInput placeholder="Set password (A-z, 0-9, @#$)" value={staffForm.password} onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })} className="border rounded px-2 py-1.5 w-full" />
               {fieldErrors.password && <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>}
             </div>
           )}
@@ -179,7 +191,7 @@ export default function HrPage() {
             <option value="daily">Daily wage</option>
           </select>
           <div>
-            <input type="number" placeholder="Amount (₹)" value={staffForm.salaryAmount} onChange={(e) => setStaffForm({ ...staffForm, salaryAmount: e.target.value })} className="border rounded px-2 py-1.5 w-full" />
+            <input type="number" min="200" placeholder="Amount (min ₹200)" value={staffForm.salaryAmount} onChange={(e) => setStaffForm({ ...staffForm, salaryAmount: e.target.value })} className="border rounded px-2 py-1.5 w-full" />
             {fieldErrors.salaryAmount && <p className="text-red-500 text-xs mt-1">{fieldErrors.salaryAmount}</p>}
           </div>
           <div>
@@ -189,7 +201,8 @@ export default function HrPage() {
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-0.5">End date (optional)</label>
-            <input type="date" value={staffForm.endDate} onChange={(e) => setStaffForm({ ...staffForm, endDate: e.target.value })} className="border rounded px-2 py-1.5 w-full" />
+            <input type="date" min={staffForm.joinDate || undefined} value={staffForm.endDate} onChange={(e) => setStaffForm({ ...staffForm, endDate: e.target.value })} className="border rounded px-2 py-1.5 w-full" />
+            {fieldErrors.endDate && <p className="text-red-500 text-xs mt-1">{fieldErrors.endDate}</p>}
           </div>
           <div className="flex gap-2 self-end">
             <button className="bg-brand-600 text-white rounded px-3 py-1.5 hover:bg-brand-700">

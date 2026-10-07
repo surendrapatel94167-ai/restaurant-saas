@@ -10,6 +10,8 @@ router.use(authenticate, authorizeRole('super_admin'));
 router.get('/tenants', controller.listTenants);
 router.get('/tenants/:tenantId', controller.getTenant);
 router.get('/admins', controller.listAdmins);
+router.get('/overview', controller.overview);
+router.delete('/staff/:userId', controller.deleteStaffAccount);
 router.post('/tenants', controller.onboardTenant);
 router.post('/tenants/multi-branch', controller.onboardMultiBranch);
 router.put('/tenants/:tenantId', controller.updateTenant);

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { validateName, validateEmail, validatePassword, validatePhone } from '../../utils/validators';
 import api from '../../api/axios';
 import PasswordInput from '../../components/PasswordInput';
 import { useToast } from '../../components/ToastProvider';
@@ -23,9 +24,10 @@ export default function AddHotelPage() {
     if (!form.hotelName.trim()) errs.hotelName = 'Hotel name is required';
     if (!form.slug.trim()) errs.slug = 'Slug is required';
     if (!form.contactEmail.trim()) errs.contactEmail = 'Contact email is required';
-    if (!form.adminName.trim()) errs.adminName = 'Admin login name is required';
-    if (!form.adminPassword.trim()) errs.adminPassword = 'Set a password';
-    else if (form.adminPassword.length < 6) errs.adminPassword = 'At least 6 characters';
+    else if (validateEmail(form.contactEmail)) errs.contactEmail = validateEmail(form.contactEmail);
+    if (validateName(form.adminName, 'Admin name')) errs.adminName = validateName(form.adminName, 'Admin name');
+    if (validatePassword(form.adminPassword)) errs.adminPassword = validatePassword(form.adminPassword);
+    if (validatePhone(form.contactPhone, { required: false })) errs.contactPhone = validatePhone(form.contactPhone, { required: false });
     setFieldErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -36,8 +38,9 @@ export default function AddHotelPage() {
       setFieldErrors({});
       toast.success('Hotel onboarded successfully');
     } catch (err) {
-      setError(err.response?.data?.message || 'Onboarding failed');
-      toast.error('Onboarding failed');
+      const message = err.response?.data?.message || 'Onboarding failed';
+      setError(message);
+      toast.error(message);
     }
   };
 
@@ -56,7 +59,10 @@ export default function AddHotelPage() {
           {fieldErrors.slug && <p className="text-red-500 text-xs mt-1">{fieldErrors.slug}</p>}
         </div>
         <input placeholder="Owner name" value={form.ownerName} onChange={(e) => setForm({ ...form, ownerName: e.target.value })} className="border rounded-lg px-3 py-2" />
-        <input placeholder="Contact phone" value={form.contactPhone} onChange={(e) => setForm({ ...form, contactPhone: e.target.value })} className="border rounded-lg px-3 py-2" />
+        <div>
+          <input placeholder="Contact phone (10 digits)" inputMode="numeric" maxLength={10} value={form.contactPhone} onChange={(e) => setForm({ ...form, contactPhone: e.target.value.replace(/\D/g, '') })} className="border rounded-lg px-3 py-2 w-full" />
+          {fieldErrors.contactPhone && <p className="text-red-500 text-xs mt-1">{fieldErrors.contactPhone}</p>}
+        </div>
         <div className="col-span-2">
           <input placeholder="Contact email" type="email" value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: e.target.value })} className="border rounded-lg px-3 py-2 w-full" />
           {fieldErrors.contactEmail && <p className="text-red-500 text-xs mt-1">{fieldErrors.contactEmail}</p>}

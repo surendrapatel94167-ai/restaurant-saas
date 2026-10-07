@@ -26,6 +26,7 @@ import AddMultiBranchHotelPage from './pages/super-admin/AddMultiBranchHotelPage
 import AllHotelsPage from './pages/super-admin/AllHotelsPage';
 import MessagesPage from './pages/super-admin/MessagesPage';
 import PlatformSettingsPage from './pages/super-admin/PlatformSettingsPage';
+import DeleteAccountPage from './pages/profile/DeleteAccountPage';
 import PendingPaymentsPage from './pages/pending-payments/PendingPaymentsPage';
 
 // super_admin isn't tied to any one restaurant (no tenantId), so it must land
@@ -62,6 +63,9 @@ export default function App() {
         <Route path="/attendance" element={<StaffAttendancePage />} />
         <Route path="/my-profile" element={<MyProfilePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route element={<ProtectedRoute allowedRoles={['manager', 'chef', 'waiter', 'cashier']} />}>
+          <Route path="/delete-account" element={<DeleteAccountPage />} />
+        </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['hotel_admin', 'manager', 'waiter', 'cashier']} />}>
           <Route path="/pending-payments" element={<PendingPaymentsPage />} />

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'restaurant-admin-shell-v1';
+const CACHE_NAME = 'restaurant-admin-shell-v2';
 const SHELL_ASSETS = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -28,4 +28,32 @@ self.addEventListener('fetch', (event) => {
   if (SHELL_ASSETS.some((a) => request.url.endsWith(a))) {
     event.respondWith(caches.match(request).then((cached) => cached || fetch(request)));
   }
+});
+
+// ---- Web push (super-admin payment / approval alerts) ----
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data && event.data.text() }; }
+  const title = data.title || 'Restaurant SaaS';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || '',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: data.url || '/' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if ('focus' in client) { client.navigate(url).catch(() => {}); return client.focus(); }
+      }
+      return self.clients.openWindow(url);
+    })
+  );
 });

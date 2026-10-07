@@ -51,7 +51,7 @@ export default function NotificationsPage() {
               {isSuperAdmin && n.tenantId?.hotelName && (
                 <p className="text-xs font-semibold text-brand-600 mb-0.5">{n.tenantId.hotelName}</p>
               )}
-              <p className="text-sm text-ink-900">{n.message}</p>
+              <p className="text-sm text-ink-900 whitespace-pre-line">{n.message}</p>
               <p className="text-xs text-gray-400 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
             </div>
             <button onClick={() => remove(n._id)} className="text-gray-400 hover:text-red-500 text-lg leading-none flex-shrink-0" aria-label="Remove">

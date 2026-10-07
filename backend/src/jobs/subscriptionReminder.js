@@ -1,5 +1,6 @@
 import Tenant from '../models/Tenant.model.js';
 import Notification from '../models/Notification.model.js';
+import { notifySuperAdmin } from '../services/notify.service.js';
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours is plenty for a "5 days before" warning
 const WARNING_WINDOW_DAYS = 5;
@@ -24,11 +25,11 @@ async function expireOverdueSubscriptions() {
         type: 'subscription_expired',
         message: `Your ${tenant.subscription.plan} plan has ended. Please subscribe to keep using the admin panel.`,
       });
-      await Notification.create({
-        recipientType: 'super_admin',
+      await notifySuperAdmin({
         tenantId: tenant._id,
         type: 'subscription_expired',
         message: `${tenant.hotelName} (${tenant.slug})'s subscription just expired.`,
+        pushTitle: 'Subscription expired',
       });
     }
   } catch (err) {

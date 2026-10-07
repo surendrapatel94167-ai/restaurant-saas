@@ -23,5 +23,11 @@ router.get('/my-branches', authenticate, authController.getMyBranches);
 router.post('/switch-branch', authenticate, authController.switchBranch);
 router.get('/my-profile', authenticate, authController.getMyProfile);
 router.put('/my-profile', authenticate, authController.updateMyProfile);
+router.post('/my-profile/verify-otp', authenticate, authController.verifyProfileOtp);
+router.post('/my-profile/reject', authenticate, authController.rejectProfileChange);
+router.get('/deletion-request', authenticate, authController.getDeletionRequestInfo);
+router.post('/deletion-request', authenticate, authController.requestAccountDeletion);
+router.get('/push-public-key', authenticate, authController.getPushKey);
+router.post('/push-subscribe', authenticate, authController.savePushSubscription);
 
 export default router;

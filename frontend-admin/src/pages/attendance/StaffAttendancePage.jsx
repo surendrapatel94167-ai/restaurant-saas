@@ -1,22 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../../api/axios';
 
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 function getLocation() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) return reject(new Error('Location not supported on this device'));
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       (err) => reject(err),
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   });
 }
@@ -26,39 +17,82 @@ export default function StaffAttendancePage() {
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
-  const cameraInputRef = useRef(null);
-  const pendingAction = useRef(null); // 'in' | 'out'
+  const [camera, setCamera] = useState(null); // { action, location } while the live camera is open
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
   const load = async () => {
     const { data } = await api.get('/hr/attendance');
     setHistory(data);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); return stopCamera; }, []);
 
   const today = history.find((r) => new Date(r.date).toDateString() === new Date().toDateString());
 
-  const startPunch = (action) => {
-    pendingAction.current = action;
-    cameraInputRef.current?.click();
-  };
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }
 
-  const handleSelfie = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    const action = pendingAction.current;
-    const label = action === 'in' ? 'Punch In' : 'Punch Out';
-    setBusy(label); setError(''); setMsg('');
+  // Punch needs BOTH location and a live camera photo. If either is switched
+  // off / denied, the punch is blocked with a clear message.
+  const startPunch = async (action) => {
+    setError(''); setMsg('');
+    setBusy('checking');
     try {
-      const selfieUrl = await fileToDataUrl(file);
-      let location = {};
+      let location;
       try {
         location = await getLocation();
-      } catch {
-        setError('Could not get your location — punch recorded without it. Please enable location access for next time.');
+      } catch (err) {
+        setError(err?.code === 1
+          ? 'Location is blocked. Turn ON location access for this app/browser, then try again — you cannot punch without it.'
+          : 'Could not get your location. Turn ON your phone location (GPS) and try again — you cannot punch without it.');
+        return;
       }
-      await api.post(action === 'in' ? '/hr/punch-in' : '/hr/punch-out', { selfieUrl, ...location });
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError('Camera is not available on this device/browser — you cannot punch without it.');
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        streamRef.current = stream;
+      } catch {
+        setError('Camera is blocked or off. Allow camera access for this app/browser, then try again — you cannot punch without it.');
+        return;
+      }
+      setCamera({ action, location });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  // attach the stream once the <video> element exists
+  useEffect(() => {
+    if (camera && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [camera]);
+
+  const cancelCamera = () => { stopCamera(); setCamera(null); };
+
+  const captureAndPunch = async () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) { setError('Camera is not ready yet — wait a second and try again.'); return; }
+    const { action, location } = camera;
+    const label = action === 'in' ? 'Punch In' : 'Punch Out';
+    const scale = Math.min(1, 640 / video.videoWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    const selfieUrl = canvas.toDataURL('image/jpeg', 0.7);
+    cancelCamera();
+
+    setBusy(label); setError(''); setMsg('');
+    try {
+      await api.post(action === 'in' ? '/hr/punch-in' : '/hr/punch-out', { selfieUrl, lat: location.lat, lng: location.lng });
       setMsg(`${label} recorded ✓`);
       load();
     } catch (err) {
@@ -84,17 +118,7 @@ export default function StaffAttendancePage() {
   return (
     <div className="max-w-xl">
       <h1 className="text-2xl font-bold text-ink-900 mb-1">My Attendance</h1>
-      <p className="text-sm text-gray-500 mb-5">Punch In/Out takes a quick selfie + your location, so it's confirmed you're at the restaurant. Half-day and leave don't need that.</p>
-
-      {/* Hidden camera-capturing file input, triggered by the Punch buttons */}
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="user"
-        onChange={handleSelfie}
-        className="hidden"
-      />
+      <p className="text-sm text-gray-500 mb-5">Punch In/Out works only with your camera AND location turned on — a live selfie + your location confirm you're at the restaurant. Half-day and leave don't need that.</p>
 
       <div className="bg-white rounded-xl shadow-card p-5 mb-6">
         <p className="text-sm text-gray-500 mb-3">
@@ -105,11 +129,11 @@ export default function StaffAttendancePage() {
         <div className="grid grid-cols-2 gap-3">
           <button disabled={!!busy} onClick={() => startPunch('in')}
             className="bg-brand-600 text-white py-2.5 rounded-lg font-medium disabled:opacity-60">
-            {busy === 'Punch In' ? 'Saving…' : '📸 Punch In (arrived)'}
+            {busy === 'Punch In' ? 'Saving…' : busy === 'checking' ? 'Checking…' : '📸 Punch In (arrived)'}
           </button>
           <button disabled={!!busy} onClick={() => startPunch('out')}
             className="bg-brand-600 text-white py-2.5 rounded-lg font-medium disabled:opacity-60">
-            {busy === 'Punch Out' ? 'Saving…' : '📸 Punch Out (leaving)'}
+            {busy === 'Punch Out' ? 'Saving…' : busy === 'checking' ? 'Checking…' : '📸 Punch Out (leaving)'}
           </button>
           <button disabled={!!busy} onClick={() => act('Half Day', () => api.post('/hr/self/half-day'))}
             className="bg-amber-100 text-amber-800 py-2.5 rounded-lg font-medium disabled:opacity-60">
@@ -144,6 +168,20 @@ export default function StaffAttendancePage() {
           </tbody>
         </table>
       </div>
+
+      {camera && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-4">
+            <h3 className="font-bold text-ink-900 mb-2">{camera.action === 'in' ? 'Punch In' : 'Punch Out'} — take a selfie</h3>
+            <video ref={videoRef} playsInline muted className="w-full rounded-xl bg-black aspect-[3/4] object-cover -scale-x-100" />
+            <p className="text-xs text-gray-500 mt-2">📍 Location captured. Face the camera and tap Capture.</p>
+            <div className="flex gap-2 mt-3">
+              <button onClick={cancelCamera} className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium">Cancel</button>
+              <button onClick={captureAndPunch} className="flex-1 bg-brand-600 text-white py-2.5 rounded-lg font-medium">📸 Capture</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

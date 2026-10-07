@@ -22,7 +22,14 @@ export function issueToken(user, tenantId = user.tenantId) {
 }
 
 export async function login(email, password) {
-  const user = await User.findOne({ email, isActive: true });
+  const normalized = String(email || '').trim().toLowerCase();
+  // Exact (lowercased) match first; fall back to a case-insensitive match so
+  // accounts created before emails were normalised can still log in.
+  let user = await User.findOne({ email: normalized, isActive: true });
+  if (!user) {
+    const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    user = await User.findOne({ email: new RegExp(`^${escaped}$`, 'i'), isActive: true });
+  }
   if (!user) {
     const err = new Error('Invalid credentials');
     err.statusCode = 401;

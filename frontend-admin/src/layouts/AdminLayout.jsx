@@ -9,7 +9,7 @@ import {
   LayoutDashboard, PlusCircle, Building2, Building, Mail, Settings, UserCog,
   Bell, BarChart3, Flame, UtensilsCrossed, Star, Ticket, Smartphone, Users,
   Wallet, QrCode, CreditCard, Store, Clock, Menu as MenuIcon, LogOut, ChevronDown,
-  Receipt, AlertTriangle,
+  Receipt, AlertTriangle, UserMinus,
 } from 'lucide-react';
 
 const NAV_BY_ROLE = {
@@ -54,12 +54,14 @@ const NAV_BY_ROLE = {
     { to: '/tables', label: 'Tables & QR', icon: QrCode },
     { to: '/billing', label: 'Subscription', icon: CreditCard },
     { to: '/my-profile', label: 'My Profile', icon: UserCog },
+    { to: '/delete-account', label: 'Delete My Account', icon: UserMinus },
   ],
   chef: [
     { to: '/kds', label: 'Kitchen Display / Live Orders', icon: Flame },
     { to: '/menu', label: 'Menu', icon: UtensilsCrossed },
     { to: '/attendance', label: 'Attendance', icon: Clock },
     { to: '/my-profile', label: 'My Profile', icon: UserCog },
+    { to: '/delete-account', label: 'Delete My Account', icon: UserMinus },
   ],
   waiter: [
     { to: '/kds', label: 'Kitchen Display / Live Orders', icon: Flame },
@@ -67,6 +69,7 @@ const NAV_BY_ROLE = {
     { to: '/menu', label: 'Menu', icon: UtensilsCrossed },
     { to: '/attendance', label: 'Attendance', icon: Clock },
     { to: '/my-profile', label: 'My Profile', icon: UserCog },
+    { to: '/delete-account', label: 'Delete My Account', icon: UserMinus },
   ],
   cashier: [
     { to: '/kds', label: 'Kitchen Display / Live Orders', icon: Flame },
@@ -74,12 +77,13 @@ const NAV_BY_ROLE = {
     { to: '/menu', label: 'Menu', icon: UtensilsCrossed },
     { to: '/attendance', label: 'Attendance', icon: Clock },
     { to: '/my-profile', label: 'My Profile', icon: UserCog },
+    { to: '/delete-account', label: 'Delete My Account', icon: UserMinus },
   ],
 };
 
 // When a tenant's subscription isn't active, hotel_admin/manager are locked
 // down to just these — enough to see status, pay, and edit their own profile.
-const RESTRICTED_PATHS = ['/billing', '/my-profile', '/profile'];
+const RESTRICTED_PATHS = ['/billing', '/my-profile', '/profile', '/delete-account'];
 
 function Avatar({ src, name, size = 'w-8 h-8', textSize = 'text-xs' }) {
   if (src) {
