@@ -145,7 +145,7 @@ export async function updateMyProfile(req, res, next) {
 
       const what = [wantsEmailChange && 'email', newPassword && 'password'].filter(Boolean).join(' and ');
       const to = process.env.SUPER_ADMIN_OTP_EMAIL || me.email;
-      await sendMail({
+      const mail = await sendMail({
         to,
         subject: 'Approve your account change — OTP',
         text: `Someone (hopefully you) asked to change your super-admin ${what}.\n\nYour OTP is: ${otp}\nIt is valid for 10 minutes.\n\nIf this was NOT you, do not share the OTP — just ignore this email (or press "Reject" in the app) and the change will never happen.`,
@@ -153,9 +153,9 @@ export async function updateMyProfile(req, res, next) {
       return res.json({
         otpRequired: true,
         mailConfigured: isMailConfigured(),
-        message: isMailConfigured()
+        message: mail.delivered
           ? `OTP sent to ${to}. Enter it to approve the ${what} change.`
-          : 'Email (SMTP) is not configured on the server, so the OTP was printed in the server logs. Enter it to approve the change.',
+          : 'The OTP email could not be sent (SMTP not configured or blocked by the host), so the OTP was printed in the server logs (Render > Logs). Enter it to approve the change.',
         user: safeUser(me),
       });
     }

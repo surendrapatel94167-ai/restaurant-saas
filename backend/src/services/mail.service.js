@@ -15,6 +15,11 @@ function getTransporter() {
     port: Number(SMTP_PORT) || 587,
     secure: SMTP_SECURE === 'true' || Number(SMTP_PORT) === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    // Fail fast — hosts like Render's free plan block SMTP ports, and without
+    // these the request would hang for minutes.
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
   });
   return transporter;
 }
@@ -29,6 +34,11 @@ export async function sendMail({ to, subject, text }) {
     console.log(`\n[mail:not-configured] To: ${to}\nSubject: ${subject}\n${text}\n`);
     return { delivered: false };
   }
-  await t.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text });
-  return { delivered: true };
+  try {
+    await t.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text });
+    return { delivered: true };
+  } catch (err) {
+    console.error(`[mail:failed] ${err.message}\nTo: ${to}\nSubject: ${subject}\n${text}\n`);
+    return { delivered: false, error: err.message };
+  }
 }
